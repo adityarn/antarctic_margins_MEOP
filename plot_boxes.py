@@ -36,7 +36,7 @@ def plot_boxes(positions=np.array([[0,-80]]), boxes=['box1'], title=' '):
     m.readshapefile("/media/data/Datasets/Shapefiles/AntarcticGroundingLine/GSHHS_f_L6", "GSHHS_f_L6", color='m')
     for i in range(len(boxes)):
         plt.text(x[i], y[i], boxes[i], fontsize=12, color='blue')
-    
+
     parallels = np.arange(-80, -30+1, 5.)
     # labels = [left,right,top,bottom]
     m.drawparallels(parallels,labels=[True]*len(parallels))

@@ -3,11 +3,11 @@ from mpl_toolkits.basemap import Basemap, cm
 from matplotlib.colors import LinearSegmentedColormap
 import numpy as np
 
-def plot_station_locations(positions, title=' '):
+def plot_station_locations(positions, title=' ', save=False, savename="untitled.png", wd=12, ht=12):
     x = positions[:,1]
     y = positions[:,0]
     
-    plt.figure(1,figsize=(15,15));
+    plt.figure(figsize=(wd,ht));
             
     #m = Basemap(projection='hammer',lon_0=270)
     # plot just upper right quadrant (corners determined from global map).
@@ -37,13 +37,21 @@ def plot_station_locations(positions, title=' '):
     m.scatter(xgrid,ygrid,marker='+',color='b');
     
     parallels = np.arange(-80, -30+1, 5.)
+    
     # labels = [left,right,top,bottom]
     m.drawparallels(parallels,labels=[True]*len(parallels))
     meridians = np.arange(-180, 181, 20.)
+
+    labels = np.array([1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0], dtype=bool)
+    import numpy.ma as ma
+    ma.masked_array(meridians, mask=labels)
+    print(labels)
     m.drawmeridians(meridians,labels=[True]*len(meridians))
     plt.title(title, y=1.07)
-    plt.tight_layout()
-    
+    #plt.tight_layout()
+
+    if(save== True):
+        plt.savefig(savename)
     plt.show();
     plt.close();
     #for i in range(len(xgrid)):
