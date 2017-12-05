@@ -4,14 +4,14 @@ from matplotlib.colors import LinearSegmentedColormap
 import numpy as np
 
 def plot_station_bot_sal(df,var="PSAL_ADJUSTED", elev=[0], lons=[0], lats=[0], title=' ', colorunit='Cond.', cmin=33, cmax=35.5, contour=False,
-                         save=False, savename="savedFig.png"):
+                         save=False, savename="savedFig.png", wd=7, ht=7):
     #not_null = ~df[var].isnull()
     
     color_var = df.loc[df.groupby('PROFILE_NUMBER').tail(1).index, var].values
     x = df.loc[df.groupby('PROFILE_NUMBER').tail(1).index, 'LONGITUDE'].values
     y = df.loc[df.groupby('PROFILE_NUMBER').tail(1).index, 'LATITUDE'].values
     
-    plt.figure(1,figsize=(15,15));
+    plt.figure(1,figsize=(wd,ht));
             
     #m = Basemap(projection='hammer',lon_0=270)
     # plot just upper right quadrant (corners determined from global map).
@@ -40,7 +40,7 @@ def plot_station_bot_sal(df,var="PSAL_ADJUSTED", elev=[0], lons=[0], lats=[0], t
     m.readshapefile("/media/data/Datasets/Shapefiles/AntarcticGroundingLine/GSHHS_f_L6", "GSHHS_f_L6", color='m')
     #m.fillcontinents(color='#ddaa66');
     
-    sc = m.scatter(xm,ym, c=color_var, vmin=cmin, vmax=cmax); #, cmap='viridis'
+    sc = m.scatter(xm,ym, c=color_var, vmin=cmin, vmax=cmax, s=0.3); #, cmap='viridis'
     cbar = m.colorbar(sc, pad="10%", location='bottom') 
     cbar.set_label(colorunit)
     parallels = np.arange(-80, -50+1, 5.)
@@ -53,9 +53,9 @@ def plot_station_bot_sal(df,var="PSAL_ADJUSTED", elev=[0], lons=[0], lats=[0], t
         cont = m.contour(xx, yy, elev, levels=levs[::-1],  colors='0.5', linestyles='-', linewidths=(0.5,)) #clevs[::-1], , cmap='rainbow'
         plt.clabel(cont, fmt = '%2.1d', colors = '0.5', fontsize=8)
     
-    m.drawparallels(parallels,labels=[True]*len(parallels))
+    m.drawparallels(parallels,labels=[1,1,1,0])
     meridians = np.arange(-180, 180, 20.)
-    m.drawmeridians(meridians,labels=[True]*len(meridians))
+    m.drawmeridians(meridians,labels=[1,1,0,1])
     plt.title(title, y=1.05)
     plt.tight_layout()
     if(save==True):

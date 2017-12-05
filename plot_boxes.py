@@ -3,11 +3,11 @@ from mpl_toolkits.basemap import Basemap, cm
 from matplotlib.colors import LinearSegmentedColormap
 import numpy as np
 
-def plot_boxes(positions=np.array([[0,-80]]), boxes=['box1'], title=' '):
+def plot_boxes(positions=np.array([[0,-80]]), boxes=['box1'], title=' ', wd=7, ht=7, save=False, savename="Untitled.png"):
     y = positions[:,1]
     x = positions[:,0]
     
-    plt.figure(figsize=(15,15));
+    plt.figure(figsize=(wd, ht));
             
     #m = Basemap(projection='hammer',lon_0=270)
     # plot just upper right quadrant (corners determined from global map).
@@ -39,12 +39,14 @@ def plot_boxes(positions=np.array([[0,-80]]), boxes=['box1'], title=' '):
 
     parallels = np.arange(-80, -30+1, 5.)
     # labels = [left,right,top,bottom]
-    m.drawparallels(parallels,labels=[True]*len(parallels))
+    m.drawparallels(parallels,labels=[1,1,1,0])
     meridians = np.arange(-180, 181, 20.)
-    m.drawmeridians(meridians,labels=[True]*len(meridians))
+    m.drawmeridians(meridians,labels=[1,1,0,1])
     plt.title(title, y=1.07)
     plt.tight_layout()
-    
+
+    if(save == True):
+        plt.savefig(savename)
     plt.show();
     #for i in range(len(xgrid)):
         #plt.annotate(str(stations[i]), (xgrid[i],ygrid[i]))
