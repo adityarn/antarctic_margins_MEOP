@@ -34,7 +34,7 @@ def plot_station_bot_sal(df,var="PSAL_ADJUSTED", elev=[0], lons=[0], lats=[0], t
     
     #lat_0 = -60, lon_0 = -20,
     xm,ym = m(x,y)    
-    
+
     m.drawmapboundary();
     m.drawcoastlines()
     m.readshapefile("/media/data/Datasets/Shapefiles/AntarcticGroundingLine/GSHHS_f_L6", "GSHHS_f_L6", color='m')
