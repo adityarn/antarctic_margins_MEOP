@@ -133,9 +133,12 @@ class Keps_Solver(object):
 
     def set_BC(self):
         z0 = self.z0
-        
+        #surface ustar
+        self.ustar[-1] = np.sqrt(self.rho_air/self.rho0 * self.C_D ) * self.U10
+
+        #bottom ustar
         self.ustar[0] = self.ORESVEL[0] * self.kappa / np.log(1 + self.y[0]/z0)
-        self.ustar[1] = np.sqrt(self.rho_air * self.C_D/self.rho[-1] ) * self.U10**2
+
         
         self.u[0] = self.ustar[0] * (5.5 + np.log(self.y[0] * abs(self.ustar[0])/self.nu)/self.kappa) #self.ORESVEL[0]
         self.u[-1] =  self.ustar[-1]*(5.5 + np.log(self.dy1 *abs(self.ustar[-1])/self.nu)/self.kappa) # self.ORESVEL[len(self.ORESVEL) - 1] #
@@ -280,11 +283,69 @@ class Keps_Solver(object):
         #self.nut_prime[self.nut_prime > 1e-3] = 1e-3
 
     def update_ustar(self):
-        #surface ustar
-        self.ustar[-1] = np.sqrt(self.rho_air/self.rho_regridded[-1] * self.C_D ) * self.U10
         #bottom ustar
         self.ustar[0] = self.kappa / np.log(self.y_mom[0]/self.z0) * np.sqrt(self.u[0]**2 + self.v[0]**2)
         self.z0 = 0.1*self.nu/self.ustar[0] + 0.03*self.y_mom[0]
+
+    def compute_uv_2Neum(self):
+        ab_u = np.zeros((3, self.N-1))
+        ab_v = np.zeros((3, self.N-1))
+        dvector_u = np.zeros(self.N-1)
+        dvector_v = np.zeros(self.N-1)
+        
+        u_old = np.copy(self.u)
+        v_old = np.copy(self.u)        
+        N = self.N
+
+        dz = np.zeros(self.N-1)
+        dz[:-1] = self.y_mom[1:] - self.y_mom[:-1]
+        dz[-1] = self.y_mom[-1] - self.y_mom[-2]
+        nu_avg = (self.nu_t[1:] + self.nu_t[:-1]) *0.5 + self.nu
+        cstar = self.kappa / (np.log(1 + self.y_mom[0]/self.z0))
+        # coeff_{i-1} should have trailing zeros
+        ab_u[2, :-1] = -nu_avg[:-1] / dz[:-1]**2
+        ab_u[2, -1] = 0.
+
+        ab_v[2, :-1] = -nu_avg[:-1] / dz[:-1]**2
+        ab_v[2, -1] = 0.
+
+        coeff_im1 = np.append(ab_u[2], ab_v[2])
+        
+
+        # u_i coeff should have all diagonal terms
+        ab_u[1, 1:-1] = 1./self.dt + 2 * nu_avg[1:-1]/dz[1:-1]**2
+        ab_u[1, 0] = 1./ self.dt + nu_avg[0]/dz[0]**2 + cstar**2 * u_old[0]/dz[0]
+        ab_u[1, -1] = 1./self.dt + nu_avg[-1]/dz[-1]**2
+
+        ab_v[1, 1:-1] = 1./self.dt + 2 * nu_avg[1:-1]/dz[1:-1]**2
+        ab_v[1, 0] = 1./ self.dt + nu_avg[0]/dz[0]**2 + cstar**2 * v_old[0]/dz[0]
+        ab_v[1, -1] = 1./self.dt + nu_avg[-1]/dz[-1]**2 
+        
+        coeff_i = np.append(ab_u[1], ab_v[1])
+        
+        # u_{i+1} should have all leading zeros
+        ab_u[0, 1:] = -nu_avg[1:] / dz[1:]**2
+        ab_u[0, 0] = 0.
+
+        ab_v[0, 1:] = -nu_avg[1:] / dz[1:]**2
+        ab_v[0, 0] = 0.
+
+        coeff_ip1 = np.append(ab_u[0], ab_v[0])
+
+        dvector_u[:] = -self.pressGrad_x / self.rho0 + self.f * self.v + u_old/self.dt
+        dvector_u[-1] += self.ustar[-1]**2/dz[-1]
+        
+        dvector_v[:] = -self.pressGrad_y / self.rho0 - self.f * self.u + v_old/self.dt
+        dvector_v[-1] += self.ustar[-1]**2/dz[-1]
+
+        dvector = np.append(dvector_u, dvector_v)
+        
+        uv = la.solve_banded((1,1), np.array((coeff_ip1, coeff_i, coeff_im1)), dvector)
+        self.u[:] = uv[0:N-1]
+        self.v[:] = uv[N-1:]
+        self.norm_u[:] = abs(u_old[:] - self.u[:])/abs(self.u[:])
+        self.norm_v[:] = abs(v_old[:] - self.v[:])/abs(self.v[:])        
+        del u_old, v_old
         
     def compute_u_2Neum(self):
         ab = np.zeros((3, self.N-1))
@@ -752,8 +813,8 @@ class Keps_Solver(object):
         while(self.iter < maxiter ):
              #& (max(self.norm_k) > tol or max(self.norm_eps) > tol or max(self.norm_u) > tol)): #self.iter < maxiter
             self.computeStabilityFunction()
-            self.compute_u_2Neum()
-            self.compute_v_2neum()
+            self.compute_uv_2Neum()
+            #self.compute_v_2neum()
             self.compute_eps_td_patankar_2N()
             self.compute_k_values_2N()
             self.computeMsquared()
