@@ -12,6 +12,8 @@ import scipy.linalg as la
 import time
 import pandas as pd
 import matplotlib.ticker as mtick
+from scipy.sparse import csr_matrix
+from scipy.sparse.linalg import spsolve
 
 start_time = time.time()
 
@@ -27,14 +29,14 @@ start_time = time.time()
 ## TOPVEL = top velocity, time averaged
 
 class Keps_Solver(object):
-    def __init__(self, N, LAT, DEPTH, PRESSGRAD_X, PRESSGRAD_Y, RHO, RESVEL, U10, OUTDIR, OUTFILE):
+    def __init__(self, N, LAT, DEPTH, PRESSGRAD_X, PRESSGRAD_Y, RHO, U10, OUTDIR, OUTFILE, RESVEL=[0.1,0.1]):
         self.N = N
         self.H = DEPTH[-1]
         self.depth = DEPTH
         self.rho = RHO
         self.ORESVEL = RESVEL #observed resultant velocity in x direction
         self.lat = LAT        
-        self.omega = -2.*np.pi/(3600.*24.)
+        self.omega = 2.*np.pi/(3600.*24.)
         self.f = 2. * self.omega * np.sin(np.deg2rad(self.lat))
         self.U10 = U10
         if(U10 < 5):
@@ -82,7 +84,7 @@ class Keps_Solver(object):
         self.norm_u = np.ones(N-1)
         self.norm_v = np.ones(N-1)        
         self.norm_k = np.ones(N)
-        self.tol_eps = 1e-6
+        self.tol = 1e-5
 
         self.dy1 = 0.0025 #self.H/1e3 #check this value to see if its within viscous sublayer
         ## y+ = yu*/nu should be within 60
@@ -142,6 +144,8 @@ class Keps_Solver(object):
         
         self.u[0] = self.ustar[0] * (5.5 + np.log(self.y[0] * abs(self.ustar[0])/self.nu)/self.kappa) #self.ORESVEL[0]
         self.u[-1] =  self.ustar[-1]*(5.5 + np.log(self.dy1 *abs(self.ustar[-1])/self.nu)/self.kappa) # self.ORESVEL[len(self.ORESVEL) - 1] #
+        self.v[0] = self.ustar[0] * (5.5 + np.log(self.y[0] * abs(self.ustar[0])/self.nu)/self.kappa) #self.ORESVEL[0]
+        self.v[-1] = self.ustar[0] * (5.5 + np.log(self.y[0] * abs(self.ustar[0])/self.nu)/self.kappa) #self.ORESVEL[0]
         
         self.k[0] = self.ustar[0]**2 / math.sqrt(self.Cmu)
         typ_eps = 1e-11 #typical eps in mid depth
@@ -287,6 +291,61 @@ class Keps_Solver(object):
         self.ustar[0] = self.kappa / np.log(self.y_mom[0]/self.z0) * np.sqrt(self.u[0]**2 + self.v[0]**2)
         self.z0 = 0.1*self.nu/self.ustar[0] + 0.03*self.y_mom[0]
 
+        
+    def compute_uv_2Neum_fImplicit(self):
+        N = self.N-1
+        a = np.zeros((2*N , 2*N))
+        b = np.zeros(2*N)
+        
+        u_old = np.copy(self.u)
+        v_old = np.copy(self.u)        
+
+        dz = np.zeros(self.N-1)
+        dz[:-1] = self.y_mom[1:] - self.y_mom[:-1]
+        dz[-1] = self.y_mom[-1] - self.y_mom[-2]
+        nu_avg = (self.nu_t[1:] + self.nu_t[:-1]) *0.5 + self.nu
+        cstar = self.kappa / (np.log(1 + self.y_mom[0]/self.z0))
+        
+        for i in range(0,N,1):
+            if(i > 0): #coeff_{i-1}
+                a[i, i-1] = -nu_avg[i-1] / dz[i-1]**2
+            if(i < N-1): #coeff_{i+1}
+                a[i, i+1] = -nu_avg[i+1] / dz[i+1]**2
+            if(i > 0 & i<N-1): # coeff_{i}
+                a[i, i] = 1./self.dt + 2 * nu_avg[i]/dz[i]**2
+            if(i == 0): #coeff_i
+                a[i, i] = 1./ self.dt + nu_avg[0]/dz[0]**2 + cstar**2 * u_old[0]/dz[0]
+            if(i == N-1): #coeff_i
+                a[i, i] = 1./ self.dt + nu_avg[i]/dz[i]**2
+                b[i] += self.ustar[-1]**2/dz[i]
+            a[i, i+N] = -self.f
+            b[i] += -self.pressGrad_x[i] / self.rho0 + u_old[i]/self.dt
+        for i in range(N,2*N,1):
+            j = i-N
+            if(i > N): #coeff_{i-1}
+                a[i, i-1] = -nu_avg[j-1] / dz[j-1]**2
+            if(i < N-1): #coeff_{i+1}
+                a[i, i+1] = -nu_avg[j+1] / dz[j+1]**2
+            if(i > N & i < 2*N-1): # coeff_{i}
+                a[i, i] = 1./self.dt + 2 * nu_avg[j]/dz[j]**2
+            if(i == N): #coeff_i
+                a[i, i] = 1./ self.dt + nu_avg[0]/dz[0]**2 + cstar**2 * v_old[0]/dz[0]
+            if(i == 2*N-1): #coeff_i
+                a[i, i] = 1./ self.dt + nu_avg[j]/dz[j]**2
+                b[i] += self.ustar[-1]**2/dz[j]
+            a[i, i-N] = self.f
+            b[i] += -self.pressGrad_y[j] / self.rho0 + v_old[j]/self.dt
+
+        a = csr_matrix(a)
+        #b = csr_matrix(b)
+        
+        uv = spsolve(a,b)
+        self.u[:] = uv[0:N]
+        self.v[:] = uv[N:]
+        self.norm_u[:] = abs(u_old[:] - self.u[:])/abs(self.u[:])
+        self.norm_v[:] = abs(v_old[:] - self.v[:])/abs(self.v[:])        
+        del u_old, v_old
+        
     def compute_uv_2Neum(self):
         ab_u = np.zeros((3, self.N-1))
         ab_v = np.zeros((3, self.N-1))
@@ -693,7 +752,170 @@ class Keps_Solver(object):
         
         self.norm_eps[:] = abs(self.eps[:] - oldeps[:])/abs(self.eps[:].max())
         del oldeps
+
+    def compute_fully_coupled_2Neum_fImplicit(self):
+        Nm = self.N-1
+        Nt = self.N
         
+        a = np.zeros((2*Nm+2*Nt , 2*Nm+2*Nt))
+        b = np.zeros(2*Nm + 2*Nt)
+        
+        u_old = np.copy(self.u)
+        v_old = np.copy(self.u)        
+
+        dz = np.zeros(self.N-1)
+        dz[:-1] = self.y_mom[1:] - self.y_mom[:-1]
+        dz[-1] = self.y_mom[-1] - self.y_mom[-2]
+        nu_avg = (self.nu_t[1:] + self.nu_t[:-1]) *0.5 + self.nu
+        cstar = self.kappa / (np.log(1 + self.y_mom[0]/self.z0))
+
+        # u mom equation
+        ########################################
+        #####################################
+        for i in range(0,Nm,1):
+            if(i > 0): #coeff_{i-1}
+                a[i, i-1] = -nu_avg[i-1] / dz[i-1]**2
+            if(i < Nm-1): #coeff_{i+1}
+                a[i, i+1] = -nu_avg[i+1] / dz[i+1]**2
+            if(i > 0 & i<Nm-1): # coeff_{i}
+                a[i, i] = 1./self.dt + 2 * nu_avg[i]/dz[i]**2
+            if(i == 0): #coeff_i
+                a[i, i] = 1./ self.dt + nu_avg[0]/dz[0]**2 + cstar**2 * u_old[0]/dz[0]
+            if(i == Nm-1): #coeff_i
+                a[i, i] = 1./ self.dt + nu_avg[i]/dz[i]**2
+                b[i] += self.ustar[-1]**2/dz[i]
+            a[i, i+Nm] = -self.f
+            b[i] += -self.pressGrad_x[i] / self.rho0 + u_old[i]/self.dt
+            
+        # v mom equation
+        #####################################################
+        #####################################################
+        for i in range(Nm,2*Nm,1):
+            j = i-Nm
+            if(i > Nm): #coeff_{i-1}
+                a[i, i-1] = -nu_avg[j-1] / dz[j-1]**2
+            if(i < Nm-1): #coeff_{i+1}
+                a[i, i+1] = -nu_avg[j+1] / dz[j+1]**2
+            if(i > Nm & i < 2*Nm-1): # coeff_{i}
+                a[i, i] = 1./self.dt + 2 * nu_avg[j]/dz[j]**2
+            if(i == Nm): #coeff_i
+                a[i, i] = 1./ self.dt + nu_avg[0]/dz[0]**2 + cstar**2 * v_old[0]/dz[0]
+            if(i == 2*Nm-1): #coeff_i
+                a[i, i] = 1./ self.dt + nu_avg[j]/dz[j]**2
+                b[i] += self.ustar[-1]**2/dz[j]
+            a[i, i-Nm] = self.f
+            b[i] += -self.pressGrad_y[j] / self.rho0 + v_old[j]/self.dt
+
+        #### k equation #########################
+        ############################################
+        #############################################
+        nu_k = self.nu_t[:] / self.sigma_k
+        k_old = np.copy(self.k)
+        dz = np.zeros(self.N)
+        dz[:-1] = abs(self.y[1:] - self.y[:-1])
+        dz[-1] = abs(self.y[-1] - self.y[-2])
+
+        buoy = np.zeros(Nt)
+        prod = np.zeros(Nt)
+        stable = (self.Nsquared[:] > 0.) # mask/filter to get bool for indices where stable is True
+        unstable = np.invert(stable)
+        buoy[stable] = -(self.nut_prime[stable]  * self.Nsquared[stable] / k_old[stable] )
+        buoy[unstable] = - self.nut_prime[unstable] * self.Nsquared[unstable]
+        
+        msq_avg = np.zeros(Nt)
+        msq_avg[1:-1] = (self.Msquared[:-1] + self.Msquared[1:]) * 0.5
+        msq_avg[0] = self.Msquared[0]
+        msq_avg[-1] = self.Msquared[-1]
+        prod[:] = self.nu_t[:] * msq_avg[:]
+        
+        for i in range(2*Nm, 2*Nm+Nt, 1):
+            j = i - 2*Nm
+            if(j > 0):
+                a[i, i-1] = -nu_k[j-1] / dz[j-1]**2
+            if(j > 0 and j<Nt-1):
+                a[i, i] = 2.* nu_k[j]/dz[j]**2 + 2. * self.eps[j]/k_old[j] + 1./self.dt
+            if(j == 0):
+                a[i, i] = 1.* nu_k[0]/dz[0]**2 + 2. * self.eps[0]/k_old[0] + 1./self.dt
+            if(j == Nt-1):
+                a[i, i] = 1.* nu_k[-1]/dz[-1]**2 + 2. * self.eps[-1]/k_old[-1] + 1./self.dt
+            if(stable[j] == True):
+                a[i, i] += -buoy[j]
+            if(j < Nt-1):
+                a[i, i+1] = -nu_k[j+1]/dz[j+1]**2
+                
+            b[i] = prod[j] + self.eps[j] + k_old[j] / self.dt
+            if(unstable[j]):
+                b[i] += buoy[j]
+
+        ## eps eps eps eps eps eps eps eps eps eps
+        #######################################################
+        ####################################################
+        nu_eps = self.nu_t[:]/self.sigma_eps
+        
+        Ceps1 = 1.44
+        Ceps2 = 1.92
+        Ceps3 = np.zeros(len(self.Nsquared))
+        Cmu0 = 0.5562
+        
+        oldeps = np.copy(self.eps)
+        Ceps3[(self.Nsquared < 0.)] = 1. #if unstable strat
+        Ceps3[(self.Nsquared > 0.)] = -0.4 #if stable strat
+
+        buoy[:] = 0.0
+        prod[:] = 0.0
+            
+        pat = (Ceps3 * self.Nsquared > 0) # if the sink term is positive, do patankar type discretization
+        nopat = np.invert(pat) # else, leave sink term on the rhs, ie. as is
+        buoy[pat] = Ceps3[pat] * self.Cmuprimevector[pat]  * self.Nsquared[pat] * self.k[pat]/oldeps[pat] # * self.Cmu0**3
+        buoy[nopat] = -Ceps3[nopat] * self.Cmuprimevector[nopat] * self.k[nopat] * self.Nsquared[nopat] # *self.Cmu0**3
+        coeff_nl_lhs = Ceps2 * 2.* oldeps / self.k
+        coeff_nl_rhs = Ceps2 * oldeps**2 / self.k
+        prod = Ceps1 * self.Cmuvector * self.k * msq_avg # * Cmu0**3
+        
+        for i in range(2*Nm+Nt, 2*Nm+2*Nt, 1):
+            j = i - (2*Nm+Nt)
+
+            if(j>0 and j<Nt-1):
+                a[i,i] = 2. * nu_eps[j] / dz[j]**2 + coeff_nl_lhs[j] + 1/self.dt
+            if(j==0):
+                a[i,i] = nu_eps[0] / dz[0]**2 + coeff_nl_lhs[0] + 1/self.dt
+                rfict0 = -nu_eps[0]/dz[0] * self.k[0]**(1.5)/(self.kappa * self.y[0]**2) * self.Cmu0**3
+                b[i] += rfict0
+            if(j==Nt-1):
+                a[i,i] = nu_eps[j] / dz[j]**2 + coeff_nl_lhs[j] + 1/self.dt
+                rfictN = nu_eps[j] / dz[j] * self.k[j]**(1.5)/(self.kappa * self.dy1**2) * self.Cmu0**3
+                b[i] += rfictN
+            if(pat[j]):
+                a[i,i] += buoy[j]
+            if(j > 0):
+                a[i,i-1] = -nu_eps[j-1] / dz[j-1]**2
+            if(j < Nt-1):
+                a[i,i+1] = -nu_eps[j+1] / dz[j+1]**2
+
+            b[i] = prod[j] + coeff_nl_rhs[j] + oldeps[j]/self.dt
+            if(nopat[j]):
+                b[i] += buoy[j]
+                
+        a = csr_matrix(a)
+        #b = csr_matrix(b)
+        
+        uvke = spsolve(a,b)
+        self.u[:] = uvke[0:Nm]
+        self.v[:] = uvke[Nm:2*Nm]
+        self.k[:] = uvke[2*Nm: 2*Nm+Nt]
+        self.k[np.where(self.k[1:-1] < 3e-8)] = 3e-8 # k limiter        
+        self.eps[:] = uvke[2*Nm+Nt : 2*Nm+2*Nt]
+        mask1 = self.Nsquared > 0
+        limiter = 0.045 * self.k**2 * self.Nsquared
+        mask2 = self.eps**2 < limiter
+        #pdb.set_trace()        
+        self.eps[mask1 & mask2] = np.sqrt(limiter[mask1 & mask2]) # eps limiter
+        
+        self.norm_u[:] = abs(u_old[:] - self.u[:])/abs(self.u[:])
+        self.norm_v[:] = abs(v_old[:] - self.v[:])/abs(self.v[:])
+        self.norm_k[:] = abs(k_old[:] - self.k[:])/abs(self.k[:])
+        self.norm_eps[:] = abs(self.eps[:] - oldeps[:])/abs(self.eps[:].max())        
+    
     def WriteOutput(self):
         if(os.path.isdir(str(self.outdir)) == False):
             os.system('mkdir '+str(self.outdir))
@@ -813,16 +1035,21 @@ class Keps_Solver(object):
         while(self.iter < maxiter ):
              #& (max(self.norm_k) > tol or max(self.norm_eps) > tol or max(self.norm_u) > tol)): #self.iter < maxiter
             self.computeStabilityFunction()
-            self.compute_uv_2Neum()
-            #self.compute_v_2neum()
-            self.compute_eps_td_patankar_2N()
-            self.compute_k_values_2N()
+            #self.compute_uv_2Neum_fImplicit()
+            #self.compute_eps_td_patankar_2N()
+            #self.compute_k_values_2N()
+            self.compute_fully_coupled_2Neum_fImplicit()
             self.computeMsquared()
             self.computeDiffusivities()
             self.update_ustar()
             self.iter += 1
+
             #print("this is iteration number = "+str(self.iter)+", max(norm_k)= "+str(max(self.norm_k))+", norm_eps_max="+str(max(self.norm_eps[:-1]))+", norm_u_max="+str(max(self.norm_u)))
             if(save_int != 0):
                 if(self.iter % save_int == 0):
                     self.WriteOutput()
                     self.plotter("single")
+
+            if(max(self.norm_u) < self.tol and max(self.norm_v)<self.tol and max(self.norm_k)<self.tol and max(self.norm_eps)<self.tol):
+                break
+            
