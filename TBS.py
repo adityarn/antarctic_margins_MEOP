@@ -29,7 +29,7 @@ start_time = time.time()
 ## TOPVEL = top velocity, time averaged
 
 class Keps_Solver(object):
-    def __init__(self, N, LAT, DEPTH, PRESSGRAD_X, PRESSGRAD_Y, RHO, U10, OUTDIR, OUTFILE, RESVEL=[0.1,0.1]):
+    def __init__(self, N, LAT, DEPTH, PRESSGRAD_X, PRESSGRAD_Y, RHO, U10, OUTDIR, OUTFILE, RESVEL=[0.1,0.1], mode="quiet"):
         self.N = N
         self.H = DEPTH[-1]
         self.depth = DEPTH
@@ -104,6 +104,8 @@ class Keps_Solver(object):
         self.flag_brk = 0
         self.z0 = 0.0015 #arbitrarily set, find a better way to do this
 
+        self.mode = mode
+
     def interpolateToModelGrid(self):
         rho_interp_func = interpolate.interp1d(self.depth, self.rho)
         self.rho_regridded = rho_interp_func(self.y)
@@ -119,9 +121,6 @@ class Keps_Solver(object):
         ## self.rho_regridded = spl(self.y)
 
     def guess_uvalues(self):
-        u_bot = self.ORESVEL[0]
-        u_top = self.ORESVEL[-1]
-        #self.u[1:-1] = u_bot - (u_bot - u_top)/(self.H - self.depth[0]) * self.y_mom[1:-1]
         self.u[:] = 0.0
 
     def guess_eps_values(self):
@@ -155,8 +154,8 @@ class Keps_Solver(object):
         self.eps[0] =  self.Cmu0**3 * self.k[0]**1.5 / (self.kappa * self.y[0]) #this variable is solved with a neumann BC, eps[0] is also computed, but this is the initial guess value
         self.eps[-1] = self.Cmu0**3 * self.k[-1]**1.5 / (self.kappa * self.dy1) #self.u_star[1]**3/(self.kappa * self.dy1) #typ_eps ##
         
-        self.nu_t[0] = self.kappa * self.ustar[0] * self.y[0] #self.Cmu*self.k[0]**2/self.eps[0]
-        self.nu_t[-1] = self.kappa * self.ustar[-1] * self.dy1 #self.kappa * self.ustar[1] * self.dy1 #self.Cmu * self.k[self.N-1]**2/self.eps[self.N-1] #typ_nut #
+        self.nu_t[0] = self.kappa * abs(self.ustar[0]) * self.y[0] #self.Cmu*self.k[0]**2/self.eps[0]
+        self.nu_t[-1] = self.kappa * abs(self.ustar[-1]) * self.dy1 #self.kappa * self.ustar[1] * self.dy1 #self.Cmu * self.k[self.N-1]**2/self.eps[self.N-1] #typ_nut #
 
         self.nut_prime[0] = self.nu_t[0]/self.sigma_rho
         self.nut_prime[self.N-1] = self.nu_t[self.N-2]/self.sigma_rho
@@ -1043,8 +1042,8 @@ class Keps_Solver(object):
             self.computeDiffusivities()
             self.update_ustar()
             self.iter += 1
-
-            #print("this is iteration number = "+str(self.iter)+", max(norm_k)= "+str(max(self.norm_k))+", norm_eps_max="+str(max(self.norm_eps[:-1]))+", norm_u_max="+str(max(self.norm_u)))
+            if(self.mode == "verbose"):
+                print("this is iteration number = "+str(self.iter)+", max(norm_k)= "+str(max(self.norm_k))+", norm_eps_max="+str(max(self.norm_eps[:-1]))+", norm_u_max="+str(max(self.norm_u)))
             if(save_int != 0):
                 if(self.iter % save_int == 0):
                     self.WriteOutput()
