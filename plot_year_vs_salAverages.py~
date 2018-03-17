@@ -1,0 +1,111 @@
+from mpl_toolkits.axes_grid1 import host_subplot
+import mpl_toolkits.axisartist as AA
+import matplotlib.pyplot as plt
+import scipy.interpolate as interpolate
+import pandas as pd
+import numpy as np
+import numpy.ma as ma
+
+def get_bottom_sal_averages_vs_year(df, mask, var='PSAL_ADJUSTED', years=[], save=False, savename="untitled.png", markersize=3, varmin=0, varmax=0, wd=10, ht=4):
+    if not years:
+        years = np.sort(df.loc[mask, 'JULD'].dt.year.unique())
+        
+    salmean = np.zeros(len(years)*12)
+    sal_sd = np.zeros(len(years)*12)
+    sal_count = np.zeros(len(years)*12)
+    for i in range(len(years)):
+        yearmask = df['JULD'].dt.year == years[i]
+        for j in range(12):
+            monthmask = df['JULD'].dt.month == j+1
+            salmean[i*12+j] = df.loc[df.loc[mask & yearmask & monthmask].groupby('PROFILE_NUMBER').tail(1).index, var].mean()
+
+            sal_sd[i*12+j] = df.loc[df.loc[mask & yearmask & monthmask].groupby('PROFILE_NUMBER').tail(1).index, var].std()
+
+            sal_count[i*12+j] = df.loc[df.loc[mask & yearmask & monthmask].groupby('PROFILE_NUMBER').tail(1).index, var].count()
+
+    sal_yerror = 1.96 * sal_sd / np.sqrt(sal_count)
+    timeaxis_ticklabel = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'] * len(years)
+    timeaxis_yearticklabel = years
+    timeaxis = np.arange(1, len(years)*12+1, 1)
+    fig, ax = plt.subplots(figsize=(wd, ht))
+    year_ax = ax.twiny()
+    fig.subplots_adjust(bottom=0.20)
+
+    year_ax.set_frame_on(True)
+    year_ax.patch.set_visible(False)
+    year_ax.xaxis.set_ticks_position('bottom')
+    year_ax.xaxis.set_label_position('bottom')
+    year_ax.spines['bottom'].set_position(('outward', 30))
+
+    ax.errorbar(timeaxis, salmean, yerr=sal_yerror, fmt='o', markersize=markersize, capsize=2)
+    ax.set_xlim(0, timeaxis[-1]+1)
+    ax.set_xticks(timeaxis)
+    ax.set_xticklabels(timeaxis_ticklabel)
+    if(varmin != 0 and varmax != 0):
+        ax.set_ylim(varmin, varmax)
+    ax.grid()
+
+    #year_ax.plot(np.arange(len(years)), [34.6]*(len(years)), 'o', color='r')
+    #year_ax.plot(timeaxis, [0]*len(timeaxis))
+    year_ax.set_xticks(np.arange(1,len(timeaxis), 12))
+    year_ax.set_xticklabels(np.array(years, dtype=str), rotation='0')
+    year_ax.set_xlim(0, timeaxis[-1]+1)
+
+    #plt.ylim(salmin, salmax)
+
+    if(save == True):
+        plt.savefig(savename)
+    plt.show()    
+
+
+def get_surface_sal_averages_vs_year(df, mask, years=[], varmin=0, varmax=0, save=False, savename="untitled.png", markersize=3, var='PSAL_ADJUSTED', wd=10, ht=4):
+    if not years:
+        years = np.sort(df.loc[mask, 'JULD'].dt.year.unique())
+        
+    salmean = np.zeros(len(years)*12)
+    sal_sd = np.zeros(len(years)*12)
+    sal_count = np.zeros(len(years)*12)
+    for i in range(len(years)):
+        yearmask = df['JULD'].dt.year == years[i]
+        for j in range(12):
+            monthmask = df['JULD'].dt.month == j+1
+            salmean[i*12+j] = df.loc[df.loc[mask & yearmask & monthmask].groupby('PROFILE_NUMBER').head(1).index, var].mean()
+
+            sal_sd[i*12+j] = df.loc[df.loc[mask & yearmask & monthmask].groupby('PROFILE_NUMBER').head(1).index, var].std()
+
+            sal_count[i*12+j] = df.loc[df.loc[mask & yearmask & monthmask].groupby('PROFILE_NUMBER').head(1).index, var].count()
+
+    sal_yerror = 1.96 * sal_sd / np.sqrt(sal_count)
+
+    timeaxis_ticklabel = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'] * len(years)
+    timeaxis_yearticklabel = years
+    timeaxis = np.arange(1, len(years)*12+1, 1)
+    fig, ax = plt.subplots(figsize=(wd, ht))
+    year_ax = ax.twiny()
+    fig.subplots_adjust(bottom=0.20)
+
+    year_ax.set_frame_on(True)
+    year_ax.patch.set_visible(False)
+    year_ax.xaxis.set_ticks_position('bottom')
+    year_ax.xaxis.set_label_position('bottom')
+    year_ax.spines['bottom'].set_position(('outward', 30))
+
+    ax.errorbar(timeaxis, salmean, yerr=sal_yerror, fmt='o', markersize=markersize, capsize=2)
+    ax.set_xlim(0, timeaxis[-1]+1)
+    ax.set_xticks(timeaxis)
+    ax.set_xticklabels(timeaxis_ticklabel)
+    if(varmin != 0 and varmax != 0):
+        ax.set_ylim(varmin, varmax)
+    ax.grid()
+    
+    #year_ax.plot(np.arange(len(years)), [34.6]*(len(years)), 'o', color='r')
+    #year_ax.plot(timeaxis, [0]*len(timeaxis))
+    year_ax.set_xticks(np.arange(1,len(timeaxis), 12))
+    year_ax.set_xticklabels(np.array(years, dtype=str), rotation='0')
+    year_ax.set_xlim(0, timeaxis[-1]+1)
+
+    #plt.ylim(salmin, salmax)
+
+    if(save == True):
+        plt.savefig(savename)
+    plt.show()    

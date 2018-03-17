@@ -7,6 +7,7 @@ import numpy.ma as ma
 import matplotlib.colors as colors
 from haversine import haversine
 from matplotlib.colors import LinearSegmentedColormap
+import cartopy.crs as ccrs
 
 def createMapProjections(lat0, lon0, region='Whole'):
     #m = Basemap(projection='hammer',lon_0=270)
@@ -30,7 +31,9 @@ def createMapProjections(lat0, lon0, region='Whole'):
     if(region =='Whole'):
         m  = Basemap(projection='ortho', lat_0=lat0, lon_0=lon0, resolution='h', llcrnrx=-width*w_factor, llcrnry=-height*h_factor, urcrnrx=w_factor*width, urcrnry=h_factor*height)
     elif(region == 'Weddell'):
-        m  = Basemap(projection='ortho', lat_0=lat0, lon_0=lon0, resolution='h', llcrnrx=-width*0.225, llcrnry=-0.1*height, urcrnrx=0.*width, urcrnry=0.20*height)
+        m  = Basemap(projection='ortho', lat_0=lat0, lon_0=lon0, resolution='h', llcrnrx=-width*0.225, llcrnry=0.05*height, urcrnrx=0.*width, urcrnry=0.20*height)
+    elif(region == 'Global'):
+        m = m1
 
     m.drawmapboundary();
     m.readshapefile("/media/data/Datasets/Shapefiles/AntarcticGroundingLine/GSHHS_f_L6", "GSHHS_f_L6", color='0.75', linewidth=0.1)
@@ -163,12 +166,12 @@ def plotSurfVarContourf(df,var="PSAL_ADJUSTED", units='Cond.', cmin=33, cmax=35.
 def plotDataDensity(df, units='Data Density',
                     save=False, savename="savedFig.png", wd=7, ht=7,
                     nx=820, ny=820, show=False,
-                    levels=[0, 10, 20, 30, 40, 50, 60]):  #, 90, 150, 250, 500, 1000, 2500]):
+                    levels=[0, 10, 20, 30, 40, 50, 60, 100, 200, 500], region='Whole'):  #, 90, 150, 250, 500, 1000, 2500]):
     plt.figure(figsize=(wd,ht));
     lat0 = -89
     lon0 = 0
             
-    m  = createMapProjections(lat0, lon0)
+    m  = createMapProjections(lat0, lon0, region=region)
     
     #lat_0 = -60, lon_0 = -20,
 
@@ -314,3 +317,36 @@ def plotMaxVarContourf(df,var="PSAL_ADJUSTED", units='Cond.', cmin=33, cmax=35.5
         plt.show();
     else:
         plt.close();
+
+
+def plotSeaIceConc(ICE, timeind, latmin=-90, latmax=-60, lonmin=-180, lonmax=180, save=False, savename="savedFig.png", show=False,
+                         wd=7, ht=7, nx=820, ny=820, cmap='viridis', nmin=30, region='Whole', levels=np.arange(0,1.1,0.1), isvar=True):
+
+    sic = ICE.sic
+    
+    fig = plt.figure(figsize=(wd,ht));
+            
+    ax = plt.axes(projection=ccrs.Orthographic(0, -90))
+    #cbar_ax = fig.add_axes([0, 0, 0.1, 0.1])
+
+    sic_contour = sic.isel(time=timeind).plot.contourf(ax=ax, transform=ccrs.PlateCarree(), levels=np.arange(0,1.1,0.1));
+    ax.set_extent([lonmin, lonmax, latmin, latmax], crs=ccrs.PlateCarree())
+    def resize_colobar(event):
+        plt.draw()
+
+        posn = ax.get_position()
+        cbar_ax.set_position([posn.x0 + posn.width + 0.01, posn.y0,
+                              0.04, posn.height])
+
+    #fig.canvas.mpl_connect('resize_event', resize_colobar)
+    #plt.colorbar(sic_contour, cax=cbar_ax)
+    #ax.set_global();
+    ax.coastlines();
+
+        
+
+    if(show==True):
+        plt.show();
+    if(save == True):
+        plt.savefig(savename)
+    

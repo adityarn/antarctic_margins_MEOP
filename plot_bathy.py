@@ -3,7 +3,7 @@ from mpl_toolkits.basemap import Basemap, cm
 from matplotlib.colors import LinearSegmentedColormap
 import numpy as np
 
-def plot_bathy(bathy, lons, lats, title=' ', wd=12, ht=12):
+def plot_bathy(bathy, lons, lats, title=' ', wd=12, ht=12, save=False, savename="untitled.png"):
     plt.figure(1,figsize=(wd,ht));
     width=1e7
     height=7e6
@@ -44,8 +44,8 @@ def plot_bathy(bathy, lons, lats, title=' ', wd=12, ht=12):
     clevs = np.array([0,-100,-200,-300,-400,-800, -1500, -3000,-6000, -9000])
     cs = m.contourf(xx, yy, bathy, clevs[::-1]) #clevs[::-1], , cmap='rainbow'
     
-    cbar = m.colorbar(cs, pad="20%", location='bottom') 
-    cbar.set_label('m')
+    cbar = m.colorbar(cs, pad="3%", location='bottom') 
+    cbar.set_label('Depth (m)')
     
       
     #m.drawmapboundary(fill_color='#99ffff');
@@ -55,10 +55,14 @@ def plot_bathy(bathy, lons, lats, title=' ', wd=12, ht=12):
     
     parallels = np.arange(-80, -29, 5.)
     # labels = [left,right,top,bottom]
-    m.drawparallels(parallels,labels=[True]*len(parallels))
+    m.drawparallels(parallels,labels=[0, 1, 0, 1])
     meridians = np.arange(int(lons[0]), lons[-1] + 1, 15.)
-    m.drawmeridians(meridians,labels=[True]*len(meridians))
+    m.drawmeridians(meridians,labels=[1, 0, 1, 0])
     plt.title(title, y=1.05)
     plt.tight_layout()
+
+    if(save == True):
+        plt.savefig(savename, dpi=150)
     plt.show()
+    
     plt.close()

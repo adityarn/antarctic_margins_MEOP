@@ -29,7 +29,7 @@ start_time = time.time()
 ## TOPVEL = top velocity, time averaged
 
 class Keps_Solver(object):
-    def __init__(self, N, LAT, DEPTH, PRESSGRAD_X, PRESSGRAD_Y, RHO, U10, V10, OUTDIR, OUTFILE, init_u=[0.1,0.1],init_v=[0.1,0.1], mode="quiet"):
+    def __init__(self, N, LAT, DEPTH, PRESSGRAD_X, PRESSGRAD_Y, RHO, U10, V10, OUTDIR, OUTFILE, init_u=[0.1,0.1],init_v=[0.1,0.1], mode="quiet", dy1_bot=0.25, dy1_surf=0.1, z0_bot=0.0012, case="None Provided"):
         self.N = N
         self.H = DEPTH[-1]
         self.depth = DEPTH
@@ -41,6 +41,7 @@ class Keps_Solver(object):
         self.f = 2. * self.omega * np.sin(np.deg2rad(self.lat))
         self.U10 = U10
         self.V10 = V10
+        self.case = str(case)
         
         if(U10 < 5):
             self.C_Du = 1e-3
@@ -77,7 +78,7 @@ class Keps_Solver(object):
         self.eps = np.zeros(N)
         self.u = np.zeros(N-1)
         self.v = np.zeros(N-1)
-                
+
         self.ustar = np.zeros(2)
         self.vstar = np.zeros(2)
         self.nu_t = np.zeros(N)
@@ -95,9 +96,9 @@ class Keps_Solver(object):
         self.norm_k = np.ones(N)
         self.tol = 1e-5
 
-        self.dy1_bot = 0.025 #self.H/1e3 #check this value to see if its within viscous sublayer
+        self.dy1_bot = dy1_bot #self.H/1e3 #check this value to see if its within viscous sublayer
         ## y+ = yu*/nu should be within 60
-        self.dy1_surf = 0.04
+        self.dy1_surf = dy1_surf
         self.y = np.linspace(self.depth[0]+self.dy1_bot , self.H-self.dy1_surf ,N)
 
         self.dy = self.y[1] - self.y[0]
@@ -112,7 +113,7 @@ class Keps_Solver(object):
         self.pressGrad_y = np.zeros(len(self.y_mom))        
 
         self.flag_brk = 0
-        self.z0 = 0.001 #arbitrarily set, find a better way to do this
+        self.z0 = z0_bot #arbitrarily set, find a better way to do this
 
         self.mode = mode
 
@@ -140,7 +141,9 @@ class Keps_Solver(object):
         self.k[1:-1] = 1e-6 #1e-2*self.y[1:-1]
 
     def guess_diff_values(self):
-        self.nu_t[1:-1] = 1e-4 #self.nu_t[0]
+        self.nu_t[1:-1] = 1e-6 #self.nu_t[0]
+        self.nu_t[0] = 1e-3
+        self.nu_t[-1] = 1e-3
 
     def set_BC(self):
         z0 = self.z0
@@ -148,8 +151,8 @@ class Keps_Solver(object):
         self.ustar[-1] = np.sqrt(self.rho_air/self.rho0 * self.C_Du ) * self.U10
         self.vstar[-1] = np.sqrt(self.rho_air/self.rho0 * self.C_Dv ) * self.V10
         #bottom ustar
-        self.ustar[0] = self.init_u[0] * self.kappa / np.log(1 + self.y[0]/z0)
-        self.vstar[0] = self.init_v[0] * self.kappa / np.log(1 + self.y[0]/z0)
+        self.ustar[0] = self.init_u[0] * self.kappa / np.log( self.y_mom[0]/z0)
+        self.vstar[0] = self.init_v[0] * self.kappa / np.log( self.y_mom[0]/z0)
 
         
         self.u[0] = self.ustar[0] * (5.5 + np.log(self.y[0] * abs(self.ustar[0])/self.nu)/self.kappa) #self.ORESVEL[0]
@@ -299,6 +302,49 @@ class Keps_Solver(object):
         if(self.z0 < 0.001):
             self.z0 = 0.001
 
+    def bring_yplus_above50(self):
+        desired_yplus = 100
+        new_y0 = desired_yplus * self.nu / self.ustar[0]
+
+        new_yt = np.linspace(new_y0, self.H-self.dy1_surf, self.N)
+        self.dy = new_yt[1] - new_yt[0]
+        new_ymom = new_yt[:-1]+self.dy*0.5
+        new_ymom[0] = new_yt[0] + self.dy1_bot*0.5
+        new_ymom[-1] = new_yt[-1] - self.dy1_surf*0.5
+
+        rho_interp_func = interpolate.interp1d(self.y, self.rho_regridded)
+        self.rho_regridded = rho_interp_func(new_yt)
+        
+        press_grad_func = interpolate.interp1d(self.y_mom, self.pressGrad_x)
+        self.pressGrad_x = press_grad_func(new_ymom)
+
+        press_grad_func = interpolate.interp1d(self.y_mom, self.pressGrad_y)
+        self.pressGrad_y = press_grad_func(new_ymom)
+
+        u_interp_func = interpolate.interp1d(self.y_mom, self.u)
+        self.u = u_interp_func(new_ymom)
+
+        v_interp_func = interpolate.interp1d(self.y_mom, self.v)
+        self.v = v_interp_func(new_ymom)
+
+        k_interp_func = interpolate.interp1d(self.y, self.k)
+        self.k = k_interp_func(new_yt)
+
+        eps_interp_func = interpolate.interp1d(self.y, self.eps)
+        self.eps = eps_interp_func(new_yt)
+
+        nut_interp_func = interpolate.interp1d(self.y, self.nu_t)
+        self.nu_t = nut_interp_func(new_yt)
+
+        nut_interp_func = interpolate.interp1d(self.y, self.nut_prime)
+        self.nut_prime = nut_interp_func(new_yt)
+
+
+        self.y_mom = new_ymom
+        self.y = new_yt
+        
+                        
+
     def compute_fully_coupled_2Neum_fImplicit(self):
         Nm = self.N-1
         Nt = self.N
@@ -313,8 +359,8 @@ class Keps_Solver(object):
         dz[:-1] = self.y_mom[1:] - self.y_mom[:-1]
         dz[-1] = self.y_mom[-1] - self.y_mom[-2]
         nu_avg = (self.nu_t[1:] + self.nu_t[:-1]) *0.5 + self.nu
-        cstar = self.kappa / (np.log(1 + self.y_mom[0]/self.z0))
-        rho_avg = (self.rho_regridded[1:] + self.rho_regridded[:-1])*0.5
+
+        rho_avg = self.rho0*np.ones(len(b)) #(self.rho_regridded[1:] + self.rho_regridded[:-1])*0.5
         # u mom equation
         ########################################
         #####################################
@@ -326,7 +372,8 @@ class Keps_Solver(object):
             if(i > 0 & i<Nm-1): # coeff_{i}
                 a[i, i] = 1./self.dt + 2 * nu_avg[i]/dz[i]**2
             if(i == 0): #coeff_i
-                a[i, i] = 1./ self.dt + nu_avg[0]/dz[0]**2 + cstar**2 * u_old[0]/dz[0]
+                a[i, i] = 1./ self.dt + nu_avg[0]/dz[0]**2
+                b[i] += -self.ustar[0]**2/dz[0]
             if(i == Nm-1): #coeff_i
                 a[i, i] = 1./ self.dt + nu_avg[i]/dz[i]**2
                 b[i] += self.ustar[-1]**2/dz[i]
@@ -345,7 +392,8 @@ class Keps_Solver(object):
             if(i > Nm & i < 2*Nm-1): # coeff_{i}
                 a[i, i] = 1./self.dt + 2 * nu_avg[j]/dz[j]**2
             if(i == Nm): #coeff_i
-                a[i, i] = 1./ self.dt + nu_avg[0]/dz[0]**2 + cstar**2 * v_old[0]/dz[0]
+                a[i, i] = 1./ self.dt + nu_avg[0]/dz[0]**2
+                b[i] += -self.vstar[0]**2 / dz[0]
             if(i == 2*Nm-1): #coeff_i
                 a[i, i] = 1./ self.dt + nu_avg[j]/dz[j]**2
                 b[i] += self.vstar[-1]**2/dz[j]
@@ -501,15 +549,25 @@ class Keps_Solver(object):
             self.iter += 1
             ymom_plus_bottom = self.y_mom[0] * self.ustar[0] / self.nu
             ymom_plus_surf = (self.H - self.y_mom[-1]) * self.ustar[-1] / self.nu
+            yt_plus_bottom = self.y[0] * self.ustar[0] / self.nu
             if(self.mode == "verbose"):
-                print("this is iteration number = "+str(self.iter)+", max(norm_k)= "+str(max(self.norm_k))+", norm_eps_max="+str(max(self.norm_eps[:-1]))+", norm_u_max="+str(max(self.norm_u))+", norm_v_max="+str(max(self.norm_v))+", y+bt = "+str(ymom_plus_bottom)+", y+surf = "+str(ymom_plus_surf))
+                print("iter = "+str(self.iter)+", max(norm_k)= "+str(max(self.norm_k))+", norm_eps_max="+str(max(self.norm_eps[:-1]))+", norm_u_max="+str(max(self.norm_u))+", norm_v_max="+str(max(self.norm_v))+", zo_bt = "+str(self.z0)+", y+_bt,surf = "+str(yt_plus_bottom)+", "+str(ymom_plus_surf))
+
+            if(yt_plus_bottom <= 50):
+                self.bring_yplus_above50()
+                
             if(save_int != 0):
                 if(self.iter % save_int == 0):
+                    print("Case: "+str(self.case))
                     self.WriteOutput()
                     self.plotter("single")
-
-            if(max(self.norm_u) < self.tol and max(self.norm_v)<self.tol and max(self.norm_k)<self.tol and max(self.norm_eps)<self.tol):
+                    
+            if(self.iter > 1000 and (yt_plus_bottom > 1e3 or ymom_plus_bottom > 1e3 or ymom_plus_bottom < 5)):
+                print("y_mom[0] has moved out of the logarithmic bottom Boundary layer!!! Stopping simulation!!!!")
                 break
+
+            ## if(max(self.norm_u) < self.tol and max(self.norm_v)<self.tol and max(self.norm_k)<self.tol and max(self.norm_eps)<self.tol):
+            ##     break
             
     def WriteOutput(self):
         if(os.path.isdir(str(self.outdir)) == False):

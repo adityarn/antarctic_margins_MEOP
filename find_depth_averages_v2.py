@@ -86,3 +86,80 @@ def find_depth_averages_v2(df, wd=7, ht=5, tmin = -2.3, tmax=-0.5, salmin=33.5, 
         plt.savefig(savename, dpi=150)
     
     plt.show();
+
+
+def plot_depth_averages_yearwise(df, mask, years=[], wd=7, ht=5, tmin = -2.3, tmax=-0.5, salmin=33.5, salmax=35.4,
+                           sigmin=26, sigmax=28, sigvline=[0,0], save=False, savename='Untitled.png',
+                           depth_bins=10.0, mask_depth_step=-5.0, use_sample_sd=False, use_full_sd=True,
+                           cutoff_depth=0, errorevery=1, ymin=0, maskerror=0, markersize='4', min_n=5):
+
+    if not years:
+        years = df.loc[mask, 'JULD'].dt.year.unique()
+                
+    fig,ax = plt.subplots(1,3,figsize=(wd, ht))
+
+
+    def get_xerror(sd, n_sd):
+        xerror = 1.96 * sd / np.sqrt(n_sd)
+        if(maskerror > 0):
+            xerror = ma.array(xerror, mask=(xerror > np.percentile(xerror, maskerror) ))
+        else:
+            xerror = ma.array(xerror, mask=(xerror < 0))
+        return xerror
+    
+
+    for i in range(len(years)):
+        year_mask = df.loc[mask, 'JULD'].dt.year == years[i]
+        zlowest = df.loc[mask & year_mask, 'DEPTH'].min()
+        depth_binned = np.arange(zlowest, 0+depth_bins, depth_bins)
+
+        binned_groups = df[mask & year_mask].groupby(pd.cut(df[mask & year_mask].DEPTH, depth_binned) )
+
+        sal_mean = binned_groups['PSAL_ADJUSTED'].mean().values
+        sal_count = binned_groups['PSAL_ADJUSTED'].count().values
+        sal_sd = binned_groups['PSAL_ADJUSTED'].std().values
+
+        temp_mean = binned_groups['TEMP_ADJUSTED'].mean().values
+        temp_count = binned_groups['TEMP_ADJUSTED'].count().values
+        temp_sd = binned_groups['TEMP_ADJUSTED'].std().values
+
+        sigma_mean = binned_groups['POT_DENSITY'].mean().values
+        sigma_count = binned_groups['POT_DENSITY'].count().values
+        sigma_sd = binned_groups['POT_DENSITY'].std().values
+
+        temp_xerror = get_xerror(temp_sd, temp_count)
+        mask_low = np.where(temp_count > min_n)[0]
+
+        ax[0].errorbar(temp_mean[mask_low], depth_binned[:-1][mask_low], xerr=temp_xerror[mask_low], 
+                     errorevery=errorevery, capsize=4, 
+                     fmt='.', markersize=markersize, label=years[i])
+
+        ax[0].set_xlabel("$\\theta^o$ C", color='b')
+        ax[0].set_xlim(tmin, tmax)
+        if(cutoff_depth != 0):
+            ax[0].set_ylim(cutoff_depth, 0)
+        ax[0].set_ylabel('Depth (m)')
+
+        sal_xerror = get_xerror(sal_sd, sal_count)
+        mask_low = np.where(sal_count > min_n)[0]
+        ax[1].errorbar(sal_mean[mask_low], depth_binned[:-1][mask_low], xerr=sal_xerror[mask_low], 
+                     errorevery=errorevery, capsize=4, fmt='.', markersize=markersize, label=str(years[i]))
+        ax[1].set_xlim(salmin, salmax)
+        ax[1].set_xlabel("Salinity", color='r')
+
+        sigma_xerror = get_xerror(sigma_sd, sigma_count)
+        mask_low = np.where(sigma_count > min_n)[0]
+        ax[2].errorbar(sigma_mean[mask_low], depth_binned[:-1][mask_low], xerr=sigma_xerror[mask_low], 
+                       errorevery=errorevery, 
+                       capsize=4, fmt='.', markersize=markersize, label=str(years[i]))
+        ax[2].set_xlabel('$\sigma_0$(kgm$^{-3}$)', color='g')
+        ax[2].set_xlim(sigmin, sigmax)
+        ax[2].axvline(x = sigvline[0], color='g', linestyle='--')
+        ax[2].axvline(x = sigvline[1], color='g', linestyle='--')
+
+    plt.tight_layout();
+    plt.legend()
+    if(save==True):
+        plt.savefig(savename, dpi=150)
+
+    plt.show();
