@@ -43,7 +43,7 @@ def createMapProjections(lat0, lon0, region='Whole'):
 
     return m
 
-def plot_station_locations(positions, title=' ', save=False, savename="untitled.png", wd=12, ht=12, region='Whole', markers=None):
+def plot_station_locations_with_mouseover(positions, title=' ', save=False, savename="untitled.png", wd=12, ht=12, region='Whole', markers=None):
     css = """
     table
     {
@@ -131,3 +131,38 @@ def plot_station_locations(positions, title=' ', save=False, savename="untitled.
         plt.savefig(savename)
 
     plt.show();
+
+
+def plot_station_locations(positions, title=' ', save=False, savename="untitled.png", wd=12, ht=12, region='Whole'):
+    x = positions[:,1]
+    y = positions[:,0]
+    
+    fig = plt.figure(figsize=(wd,ht));
+    ax = plt.axes()
+    lat0 = -90
+    lon0 = 0
+    m = createMapProjections(lat0, lon0, region=region)    
+
+    xgrid,ygrid = m(x,y)    
+    
+    m.drawmapboundary();
+    m.drawcoastlines()
+    #m.fillcontinents(color='#cc9966');
+    m.readshapefile("/media/data/Datasets/Shapefiles/AntarcticGroundingLine/GSHHS_f_L6", "GSHHS_f_L6", color='m')
+
+    ## if(markers != None):
+    ##     for i in range(len(markers)):
+    ##         plt.text(xgrid[i],ygrid[i], str(markers[i]), color='b');
+    
+    parallels = np.arange(-80, -30+1, 5.)
+    labels = [1,1,1,0]
+    m.drawparallels(parallels,labels=labels)
+    meridians = np.arange(-180, 180, 20.)
+    labels = [1,1,0,1]
+    m.drawmeridians(meridians, labels=labels)
+
+    m.scatter(x, y, latlon=True)
+
+    if(save == True):
+        plt.savefig(savename)
+    plt.show()

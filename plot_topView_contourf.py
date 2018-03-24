@@ -31,12 +31,14 @@ def createMapProjections(lat0, lon0, region='Whole'):
     if(region =='Whole'):
         m  = Basemap(projection='ortho', lat_0=lat0, lon_0=lon0, resolution='h', llcrnrx=-width*w_factor, llcrnry=-height*h_factor, urcrnrx=w_factor*width, urcrnry=h_factor*height)
     elif(region == 'Weddell'):
-        m  = Basemap(projection='ortho', lat_0=lat0, lon_0=lon0, resolution='h', llcrnrx=-width*0.225, llcrnry=0.05*height, urcrnrx=0.*width, urcrnry=0.20*height)
+        m  = Basemap(projection='ortho', lat_0=lat0, lon_0=lon0, resolution='h', llcrnrx=-width*0.225, llcrnry=0.05*height, urcrnrx=0.*width, urcrnry=0.*height)
+    elif(region == 'Ross'):
+        m  = Basemap(projection='ortho', lat_0=lat0, lon_0=lon0, resolution='h', llcrnrx=-width*0.1, llcrnry=-height*0, urcrnrx=width*0.075, urcrnry=height*0.18)
     elif(region == 'Global'):
         m = m1
 
     m.drawmapboundary();
-    m.readshapefile("/media/data/Datasets/Shapefiles/AntarcticGroundingLine/GSHHS_f_L6", "GSHHS_f_L6", color='0.75', linewidth=0.1)
+    m.readshapefile("/media/data/Datasets/Shapefiles/AntarcticGroundingLine/GSHHS_f_L6", "GSHHS_f_L6", color='0.75', linewidth=0.2)
     #m.fillcontinents(color='#ddaa66');
     m.drawcoastlines(linewidth=0.2)    
 
@@ -61,7 +63,8 @@ def getCellSize(m, nx=300, ny=300):
     bot_lonlat = m(bottom[0], bottom[1], inverse=True)
     dist_x = haversine(list(left_lonlat[::-1]), list(right_lonlat[::-1]))
     dist_y = haversine(top_lonlat[::-1], bot_lonlat[::-1])
-    print("Horizontal distance = ", dist_x, "\n", "Vertical distance = ", dist_y)
+
+    return dist_x/float(nx), dist_y/float(ny)
     
 def plotBotVarContourf(df,var="PSAL_ADJUSTED", units='Cond.', cmin=33, cmax=35.5,
                          save=False, savename="savedFig.png", wd=7, ht=7, cmap='viridis', region='Whole', nmin=0, show=False, nx=820, ny=820):
@@ -165,11 +168,9 @@ def plotSurfVarContourf(df,var="PSAL_ADJUSTED", units='Cond.', cmin=33, cmax=35.
 
 def plotDataDensity(df, units='Data Density',
                     save=False, savename="savedFig.png", wd=7, ht=7,
-                    nx=820, ny=820, show=False,
+                    nx=820, ny=820, show=False, lat0 = -90, lon0=0,
                     levels=[0, 10, 20, 30, 40, 50, 60, 100, 200, 500], region='Whole'):  #, 90, 150, 250, 500, 1000, 2500]):
     plt.figure(figsize=(wd,ht));
-    lat0 = -89
-    lon0 = 0
             
     m  = createMapProjections(lat0, lon0, region=region)
     
@@ -350,3 +351,35 @@ def plotSeaIceConc(ICE, timeind, latmin=-90, latmax=-60, lonmin=-180, lonmax=180
     if(save == True):
         plt.savefig(savename)
     
+
+def find_area(df, m, units='Data Density',
+                    nx=820, ny=820, lat0 = -90, lon0=0,region='Whole', years=[]):
+
+    area = np.zeros(len(years))
+    
+    for j in range(len(years)):
+        year_mask = df['JULD'].dt.year == years[j]
+        surfIndex = df[year_mask].groupby('PROFILE_NUMBER').head(1).index
+
+        xlons, ylats = m(df[year_mask].loc[surfIndex , 'LONGITUDE'].values, df[year_mask].loc[surfIndex,'LATITUDE'].values)
+
+        Xgrid = np.linspace(m.llcrnrx, m.urcrnrx, nx)
+        Ygrid = np.linspace(m.llcrnry, m.urcrnry, ny)
+        XX, YY = np.meshgrid(Xgrid, Ygrid)
+        ni = np.zeros((len(Ygrid), len(Xgrid)))
+
+        for i in range(len(xlons)):
+            row = np.argmin(np.abs(Ygrid - ylats[i]))
+            col = np.argmin(np.abs(Xgrid - xlons[i]))
+            ni[row , col] = 1
+
+        ni = ma.array(ni)
+        ni_masked = ma.masked_equal(ni ,0)
+
+        cell_size_x, cell_size_y = getCellSize(m, nx=nx, ny=ny)
+
+        number_of_cells = np.sum(ni_masked)
+
+        area[j] = cell_size_x * cell_size_y * number_of_cells
+    
+    return area
