@@ -39,7 +39,7 @@ def print_yearly_fh(fh, years, area, verbose=False, plot=False, wd=5, ht=3, save
         lns4 = ax.plot(timeaxis, net_glacier_fh, '.', 
                            label='Glacial Runoff $f_{h(glacial)}$', color='r')
         lns5 = ax2.plot(timeaxis, net_glacier_mass, 'x', color='k', 
-                            label='Glacial Runoff Mass')
+                            label='$M_{glacial}$')
         
         #ax.errorbar(timeaxis, gross_fh, yerr=gross_fh_err, capsize=4, fmt='none', color='b')
         #ax.errorbar(timeaxis, fh[1][0], yerr=fh[1][1], fmt='none', color='m')
@@ -49,13 +49,73 @@ def print_yearly_fh(fh, years, area, verbose=False, plot=False, wd=5, ht=3, save
         ax.set_xticks(timeaxis)
         ax.set_xticklabels(xticklabel)
         ax.set_ylabel("mm yr$^{-1}$")
-        ax2.set_ylabel("Gta$^{-1}$")
+        ax2.set_ylabel("$M_{glacial}$ (Gta$^{-1}$)")
         ax.grid()
         
         #lns = lns1+lns2+lns3+lns4+lns5
         lns = lns1+lns4+lns5
         labs = [l.get_label() for l in lns]
         lgd = ax.legend(lns, labs, loc=0, bbox_to_anchor=(1., -0.2), fancybox=True, ncol=3)
+        
+        plt.tight_layout()
+        if(save == True):
+            plt.savefig(savename, dpi=150, bbox_extra_artists=(lgd,), bbox_inches='tight')
+        plt.show()
+    print(net_glacier_fh_err)
+    return net_glacier_fh
+
+
+def print_climatological_fh(fh, area, verbose=False, plot=False, wd=5, ht=3, save=False, savename='untitled.png', bwd=.2):
+    gross_fh = 0.0
+    gross_fh_err = 0.0
+    net_glacier_fh = 0.0
+    net_glacier_fh_err = 0.0
+    net_glacier_mass = 0.0
+    net_glacier_mass_err = 0.0
+    xticklabel = []
+    
+    gross_fh = np.nansum(fh[0][0][0,::-1][0:6])
+    gross_fh_err = np.nansum(fh[0][1][0,::-1][0:6])
+    net_glacier_fh = np.nansum(fh[0][0][0,::-1][0:6]) + fh[1][0] - fh[2][0]
+    net_glacier_fh_err = np.nansum(fh[0][1][0,::-1][0:6]) + fh[1][1] + fh[2][1]
+    rho = 1e3
+    net_glacier_mass = (net_glacier_fh * 1e-3) * (area * 1e6) * rho * 1e-12
+    net_glacier_mass_err = (net_glacier_fh_err * 1e-3) * (area * 1e6) * rho * 1e-12
+        
+    #xticklabel.append(str(years[i])+"\n"+str(int(area[i]))+" km$^2$")
+
+    print(fh[0][0][0,::-1][0:6].sum(), fh[1][0], fh[2][0])
+    
+    if(plot == True):
+        fig, ax = plt.subplots(figsize=(wd, ht))
+        ax2 = ax.twinx()
+
+        lns1 = ax.bar(1, gross_fh, bwd, label='Gross $f_h$', yerr=gross_fh_err)
+        lns2 = ax.bar(2, -fh[1][0], bwd, label='P-E $f_{h(P-E)}$', yerr=fh[1][1])
+        lns3 = ax.bar(3, fh[2][0], bwd, label='Sea-ice $f_{h(sea ice)}$', yerr=fh[2][1])
+        lns4 = ax.bar(4, net_glacier_fh, bwd, 
+                           label='Glacial Runoff $f_{h(glacial)}$', yerr=net_glacier_fh_err )
+        lns5 = ax2.bar(5, net_glacier_mass, bwd, yerr=net_glacier_mass_err, 
+                            label='$M_{glacial}$', color="0.75")
+        xticklabel = ['Gross $f_h$', '$f_{h(E-P)}$', '$f_{h(sea ice)}$', '$f_{h(glacial)}$', '$M_{glacial}$' ]
+        ax.set_xticks(np.arange(1,6))
+        ax.set_xticklabels(xticklabel, rotation=90)
+        ax.set_ylabel("$f_h$ mm yr$^{-1}$")
+        ax2.set_ylabel("$M_{glacial}$ (Gta$^{-1}$)")
+        ax.grid()
+        yaxlim = ax.get_ylim()
+        ratio1 = yaxlim[0] / (yaxlim[1] - yaxlim[0])
+        y2axlim = ax2.get_ylim()
+        bot2 = ratio1 * y2axlim[1] / (1 + ratio1)
+        ax2.set_ylim(bot2, y2axlim[1])
+        
+        #lns = lns1+lns2+lns3+lns4+lns5
+        lns = lns1+lns2+lns3+lns4+lns5
+        labs = [l.get_label() for l in lns]
+        handles, labels = ax.get_legend_handles_labels()
+        handles2, labels2 = ax2.get_legend_handles_labels()
+        lgd = ax.legend(handles+handles2, labels+labels2, loc=0, bbox_to_anchor=(.93, -0.3), fancybox=True, ncol=3)
+        #lgd = ax.legend(lns, labs, loc=0, bbox_to_anchor=(1., -0.5), fancybox=True, ncol=3)
         
         plt.tight_layout()
         if(save == True):

@@ -8,7 +8,7 @@ import numpy.ma as ma
 from matplotlib.font_manager import FontProperties
 import compute_EP_net as computeEPnet
 import importlib
-#importlib.reload(computeEPnet)
+importlib.reload(computeEPnet)
 import xarray as xr
 
 def truncate(f, n):
@@ -23,12 +23,18 @@ def truncate(f, n):
 def plot_sal_contours_with_time(df, years=[], bins=5, wd=12, ht=5, varmin=33, varmax=35, nlevs=10,
                                     colorunit='Salinity (PSU)', save=False, savename="Untitled.png", 
                                     zbin=20, zmin=0, nmin=3, depth_max=0.0, levs=[], type=1, integrationDepth=100, plot=True, precip_dir="/media/data/Datasets/AirSeaFluxes/GPCPprecip",
-                                    evap_dir="/media/data/Datasets/AirSeaFluxes/WHOIevap"):
+                                    evap_dir="/media/data/Datasets/AirSeaFluxes/WHOIevap", clim=False, lonmin=np.nan, lonmax=np.nan):
     if not years:
         years = np.sort(df.loc[:, 'JULD'].dt.year.unique())
+    if(clim == False):
+        iter_range = len(years)
+        evap_year_start, evap_year_end = years[0], years[-1]
+    else:
+        iter_range = 1
+        evap_year_start, evap_year_end = 2007, 2015
     
     evap_total = []
-    for i in range(years[0], years[-1]+1, 1):
+    for i in range(evap_year_start, evap_year_end+1, 1):
         evap_total.append(xr.open_dataset(evap_dir+"/evapr_oaflux_"+str(i)+".nc"))
 
     precip = xr.open_dataset(precip_dir+"/precip.mon.mean.nc")
@@ -41,12 +47,10 @@ def plot_sal_contours_with_time(df, years=[], bins=5, wd=12, ht=5, varmin=33, va
     number_bins = np.abs(zlowest) // zbin
     depth_bins = np.linspace(zlowest, 0, number_bins)
         
-    timeaxis_ticklabel = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'] * len(years)
+    timeaxis_ticklabel = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'] * iter_range
     timeaxis_yearticklabel = years
-    timeaxis = np.arange(1, len(years)*12+1, 1)
+    timeaxis = np.arange(1, iter_range*12+1, 1)
     
-
-        
     var_binned = np.zeros((len(timeaxis), len(depth_bins)))
     mask = df.loc[:,'JULD'].dt.year.isin(years)
     var_mean = np.zeros((len(timeaxis), len(depth_bins)-1))
@@ -55,25 +59,34 @@ def plot_sal_contours_with_time(df, years=[], bins=5, wd=12, ht=5, varmin=33, va
     rhomean = np.zeros((len(timeaxis), len(depth_bins)-1))
     var_count = np.zeros((len(timeaxis), len(depth_bins)-1))
     var_sd = np.zeros((len(timeaxis), len(depth_bins)-1))
-    freshwater_h = np.zeros((len(years), len(depth_bins)-1))
-    freshwater_h_error = np.zeros((len(years), len(depth_bins)-1))
-    netEP = np.zeros(len(years))
-    netEP_error = np.zeros(len(years))
-    seaice_fh = np.zeros(len(years))
-    seaice_std = np.zeros(len(years))
+    freshwater_h = np.zeros((iter_range, len(depth_bins)-1))
+    freshwater_h_error = np.zeros((iter_range, len(depth_bins)-1))
+    netEP = np.zeros(iter_range)
+    netEP_error = np.zeros(iter_range)
+    seaice_fh = np.zeros(iter_range)
+    seaice_std = np.zeros(iter_range)
     
-    for i in range(len(years)):
-        print(years[i])
-        yearmask = df['JULD'].dt.year == years[i]
+    for i in range(iter_range):
+
+        if(clim == False):
+            yearmask = df['JULD'].dt.year == years[i]
+        else:
+            yearmask = df['JULD'].dt.year.isin(years)
         count = df.loc[yearmask, 'PSAL_ADJUSTED'].count()
         
         if(count > 0):
-            lonmin, lonmax = int(df.loc[yearmask, 'LONGITUDE'].min()), int(df.loc[yearmask, 'LONGITUDE'].max())
+            if(np.isnan(lonmin) & np.isnan(lonmax)):
+                lonmin, lonmax = int(df.loc[yearmask, 'LONGITUDE'].min()), int(df.loc[yearmask, 'LONGITUDE'].max())
             latmin, latmax = int(df.loc[yearmask, 'LATITUDE'].min()), int(df.loc[yearmask, 'LATITUDE'].max())
+            print(lonmin, lonmax, latmin, latmax)
             evap = evap_total[i]
-            netEP[i], netEP_error[i] = computeEPnet.freshwater_flux_compute(evap, precip, precip_error, years[i], lonmin, lonmax, latmin, latmax, plot=False)
+            if(clim == False):
+                netEP[i], netEP_error[i] = computeEPnet.freshwater_flux_compute(evap, precip, precip_error, lonmin, lonmax, latmin, latmax, plot=False, year=years[i])
+                seaice_fh[i], seaice_std[i] = find_sim_freshwater_h(lonmin, lonmax, latmin, latmax, year=years[i])
+            else:
+                netEP[i], netEP_error[i] = computeEPnet.freshwater_flux_compute(evap_total, precip, precip_error, lonmin, lonmax, latmin, latmax, clim=True, plot=False, year=[evap_year_start, evap_year_end])
+                seaice_fh[i], seaice_std[i] = find_sim_freshwater_h(lonmin, lonmax, latmin, latmax, clim=True)
 
-            seaice_fh[i], seaice_std[i] = find_sim_freshwater_h(years[i], lonmin, lonmax, latmin, latmax)
 
             for j in range(12):
                 monthmask = df['JULD'].dt.month == j+1
@@ -85,6 +98,19 @@ def plot_sal_contours_with_time(df, years=[], bins=5, wd=12, ht=5, varmin=33, va
                 var_count[i*12+j] = timeSlice_df.groupby(pd.cut(timeSlice_df.DEPTH, depth_bins)).PSAL_ADJUSTED.count().values
                 var_sd[i*12+j] = timeSlice_df.groupby(pd.cut(timeSlice_df.DEPTH, depth_bins)).PSAL_ADJUSTED.std().values
 
+            if(type == 0): ## type 0 does not compute with rho, it is h_{bin} ( \frac{SA_max}{SA_min} - 1 )
+                for b in range(len(depth_bins)-1):
+                    s,e = i*12, i*12+12
+                    if(np.isnan(var_mean[s:e, b]).all()):
+                        continue
+                    else:
+                        min_ind = np.nanargmin(var_mean[s : e, b])
+                        max_ind = np.nanargmax(var_mean[s : e, b])
+                                                
+                        h_w = abs(depth_bins[1] - depth_bins[0])
+                        freshwater_h[i][b] = h_w * ( abssalmean[s:e, b][max_ind] / abssalmean[s:e, b][min_ind]  - 1 ) * 1e3
+                        freshwater_h_error[i][b] = abs(freshwater_h[i][b]) * np.sqrt( (abssalstd[s:e,b][max_ind] / abssalmean[s:e,b][max_ind])**2 +  (abssalstd[s:e,b][min_ind] / abssalmean[s:e,b][min_ind])**2)
+                
             if(type == 1):
                 for b in range(len(depth_bins)-1):
                     s,e = i*12, i*12+12
@@ -96,11 +122,7 @@ def plot_sal_contours_with_time(df, years=[], bins=5, wd=12, ht=5, varmin=33, va
                                                 
                         h_w = abs(depth_bins[1] - depth_bins[0])
                         freshwater_h[i][b] = h_w * ( (rhomean[s:e, b][max_ind] * abssalmean[s:e, b][max_ind]) / (rhomean[s:e, b][min_ind] * abssalmean[s:e, b][min_ind])  - 1 ) * 1e3
-                        freshwater_h_error[i][b] = h_w * abs(freshwater_h[i][b]) * np.sqrt( (abssalstd[s:e,b][max_ind] / abssalmean[s:e,b][max_ind])**2 +  (abssalstd[s:e,b][min_ind] / abssalmean[s:e,b][min_ind])**2)
-                        ## if(b == len(depth_bins)-2):
-                        ##     freshwater_h[i][b] += -netEP[i]
-                        ##     freshwater_h[i][b] += -seaice_fh
-                        ##     print(netEP[i])
+                        freshwater_h_error[i][b] = abs(freshwater_h[i][b]) * np.sqrt( (abssalstd[s:e,b][max_ind] / abssalmean[s:e,b][max_ind])**2 +  (abssalstd[s:e,b][min_ind] / abssalmean[s:e,b][min_ind])**2)
 
             if(type == 2):
                 s,e = i*12, i*12+12
@@ -130,13 +152,18 @@ def plot_sal_contours_with_time(df, years=[], bins=5, wd=12, ht=5, varmin=33, va
     #fig.subplots_adjust(hspace=1.3)
     if(plot == True):
         fig, ax = plt.subplots(nrows=1, ncols=1,squeeze=True, figsize=(wd, ht))
-        year_ax = ax.twiny()
 
-        year_ax.set_frame_on(True)
-        year_ax.patch.set_visible(False)
-        year_ax.xaxis.set_ticks_position('bottom')
-        year_ax.xaxis.set_label_position('bottom')
-        year_ax.spines['bottom'].set_position(('outward', 30))
+        if(clim == False):
+            year_ax = ax.twiny()
+            year_ax.set_frame_on(True)
+            year_ax.patch.set_visible(False)
+            year_ax.xaxis.set_ticks_position('bottom')
+            year_ax.xaxis.set_label_position('bottom')
+            year_ax.spines['bottom'].set_position(('outward', 30))
+            year_ax.set_xticks(np.arange(1,len(timeaxis)+1, 12))
+            year_ax.set_xticklabels(np.array(years, dtype=str), rotation='0')
+            year_ax.set_xlim(1, timeaxis[-1])
+            
 
         zbin_midpoint = depth_bins[:-1] + np.diff(depth_bins)*0.5
         #zbin_midpoint = np.insert(zbin_midpoint, len(zbin_midpoint), 0)
@@ -151,13 +178,13 @@ def plot_sal_contours_with_time(df, years=[], bins=5, wd=12, ht=5, varmin=33, va
 
         if(depth_max < 0):
             ax.set_ylim(depth_max, 0)
-        year_ax.set_xticks(np.arange(1,len(timeaxis)+1, 12))
-        year_ax.set_xticklabels(np.array(years, dtype=str), rotation='0')
-        year_ax.set_xlim(1, timeaxis[-1])
 
         #cbaxes = fig.add_axes([1.005, 0.075, 0.02, 0.885]) 
         #cbar1 = fig.colorbar(CF, cax=cbaxes)
-        cbar1 = fig.colorbar(CF, ax=[ax, year_ax], pad=0.015)
+        if(clim == False):
+            cbar1 = fig.colorbar(CF, ax=[ax, year_ax], pad=0.015)
+        else:
+            cbar1 = fig.colorbar(CF, ax=ax, pad=0.015)
         #cbar1.set_label(colorunit, labelpad=4, y=0.5)
         cbar1.set_label(colorunit)
 
@@ -167,16 +194,17 @@ def plot_sal_contours_with_time(df, years=[], bins=5, wd=12, ht=5, varmin=33, va
         conf_int[np.where(var_count == 0)] = np.nan    
         conf_int = ma.masked_invalid(conf_int)
 
-        print(np.mean(conf_int[conf_int < 1e5]), np.max(conf_int[conf_int < 1e5]))
-
         CF2 = ax.contourf(X.T[:, :], Y.T[:, :], conf_int[:, :], levels=[0, 0.1, 0.2, 0.3, 0.5, 1.0, np.inf], colors='none', hatches=['', '/', '\\', '.', '+', 'o'])
         #fontP = FontProperties()
         #fontP.set_size('small')
         #legend([plot1], "title", prop=fontP)
         artists, labels = CF2.legend_elements(variable_name="\\sigma")
         labels[-1] = 'count $< $'+str(nmin)
-        lgd = plt.legend(artists, labels, handleheight=2, loc='upper left', bbox_to_anchor=(0.3, -0.19), fancybox=True, ncol=3)
-
+        if(clim == False):
+            lgd = plt.legend(artists, labels, handleheight=2, loc='upper left', bbox_to_anchor=(0.3, -0.19), fancybox=True, ncol=3)
+        if(clim == True):
+            lgd = plt.legend(artists, labels, handleheight=2, loc='upper left', bbox_to_anchor=(0.3, -0.1), fancybox=True, ncol=3)
+            
         if(zmin != 0):
             ax.set_ylim(zmin, 0)
         else:
@@ -269,8 +297,6 @@ def plot_CT_contours_with_time(df, years=[], bins=5, wd=12, ht=5, varmin=-3, var
     conf_int[np.where(var_count == 0)] = np.nan    
     conf_int = ma.masked_invalid(conf_int)
 
-    print(np.mean(conf_int[conf_int < 1e5]), np.max(conf_int[conf_int < 1e5]))
-
     CF2 = ax.contourf(X.T[:, :], Y.T[:, :], conf_int[:, :], levels=[0, 0.1, 0.2, 0.3, 0.5, 1.0, np.inf], colors='none', hatches=['', '/', '\\', '.', '+', 'o'])
     #fontP = FontProperties()
     #fontP.set_size('small')
@@ -290,39 +316,79 @@ def plot_CT_contours_with_time(df, years=[], bins=5, wd=12, ht=5, varmin=-3, var
     plt.show()
 
 
-def find_sim_freshwater_h(year, lonmin, lonmax, latmin, latmax, plot=False):
-    
-    def find_lonlat_indices_seaice(seaice, time, lon, lat):
-        time_ind = np.asscalar(np.argmin(np.abs(seaice.time - time )))
-        return time_ind, np.asscalar(np.argmin(np.abs(seaice.lon - lon))), np.asscalar(np.argmin(np.abs(seaice.lat - lat)))
-    
-    seaice = xr.open_dataset("/media/data/Datasets/SeaIce/ocn_ana_2D_ll.nc")
-    timeind, lonminind, latminind = find_lonlat_indices_seaice(seaice, np.datetime64(str(year)+'-01'), lonmin, latmin)
-    _, lonmaxind, latmaxind = find_lonlat_indices_seaice(seaice, np.datetime64(str(year)+'-01'), lonmax, latmax)
-    sim_monthly_area_average = np.zeros(12)
-    sim_monthly_area_std = np.zeros(12)
-    for i in range(12):
-        sim_monthly_area_average[i] = seaice.sim.isel(time=timeind+i, lon=slice(lonminind, lonmaxind), 
-                                                      lat=slice(latminind, latmaxind)).mean()
-        sim_monthly_area_std[i] = seaice.sim.isel(time=timeind+i, lon=slice(lonminind, lonmaxind), 
-                                                      lat=slice(latminind, latmaxind)).std()
-    
-    if(plot==True):
-        plt.plot(np.arange(1,13,1), sim_monthly_area_average)
-        plt.show()
-    if(np.isnan(sim_monthly_area_average).all() == True):
-        minind, maxind = 0, 0
-    else:
-        minind, maxind = np.nanargmin(sim_monthly_area_average), np.nanargmax(sim_monthly_area_average)
-
-    if(np.isnan(sim_monthly_area_std).all() == True):
-        fh_std = np.nan
-    else:
-        fh_std = np.nanmax(sim_monthly_area_std)
+def find_sim_freshwater_h(lonmin, lonmax, latmin, latmax, plot=False, clim=False, year=0):
+    if(clim == False):
+        if(year == 0):
+            print("\"year\" cannot be \"0\" when \"clim\" is \"False\"")
+            return np.nan
         
-    mass_diff = sim_monthly_area_average[maxind] - sim_monthly_area_average[minind]
-    
-    fh = mass_diff / 1030. * 1e3
-    
+        def find_lonlat_indices_seaice(seaice, time, lon, lat):
+            time_ind = np.asscalar(np.argmin(np.abs(seaice.time - time )))
+            return time_ind, np.asscalar(np.argmin(np.abs(seaice.lon - lon))), np.asscalar(np.argmin(np.abs(seaice.lat - lat)))
+
+        seaice = xr.open_dataset("/media/data/Datasets/SeaIce/ocn_ana_2D_ll.nc")
+        timeind, lonminind, latminind = find_lonlat_indices_seaice(seaice, np.datetime64(str(year)+'-01'), lonmin, latmin)
+        _, lonmaxind, latmaxind = find_lonlat_indices_seaice(seaice, np.datetime64(str(year)+'-01'), lonmax, latmax)
+        sim_monthly_area_average = np.zeros(12)
+        sim_monthly_area_std = np.zeros(12)
+        for i in range(12):
+            sim_monthly_area_average[i] = np.nanmean(seaice.sim.isel(time=timeind+i, lon=slice(lonminind, lonmaxind), 
+                                                          lat=slice(latminind, latmaxind)).values)
+            sim_monthly_area_std[i] = np.nanstd(seaice.sim.isel(time=timeind+i, lon=slice(lonminind, lonmaxind), 
+                                                          lat=slice(latminind, latmaxind)).values)
+
+        if(plot==True):
+            plt.plot(np.arange(1,13,1), sim_monthly_area_average)
+            plt.show()
+        if(np.isnan(sim_monthly_area_average).all() == True):
+            minind, maxind = 0, 0
+        else:
+            minind, maxind = np.nanargmin(sim_monthly_area_average), np.nanargmax(sim_monthly_area_average)
+
+        if(np.isnan(sim_monthly_area_std).all() == True):
+            fh_std = np.nan
+        else:
+            fh_std = np.nanmax(sim_monthly_area_std)
+
+        mass_diff = sim_monthly_area_average[maxind] - sim_monthly_area_average[minind]
+
+        fh = mass_diff / 1027. * 1e3
+
+    if(clim == True):
+        
+        def find_lonlat_indices_seaice(seaice, time, lon, lat):
+            time_ind = np.asscalar(np.argmin(np.abs(seaice.time - time )))
+            return time_ind, np.asscalar(np.argmin(np.abs(seaice.lon - lon))), np.asscalar(np.argmin(np.abs(seaice.lat - lat)))
+
+        seaice = xr.open_dataset("/media/data/Datasets/SeaIce/ocn_ana_2D_ll.nc")
+        year = 2004
+        _, lonminind, latminind = find_lonlat_indices_seaice(seaice, np.datetime64(str(year)+'-01'), lonmin, latmin)
+        _, lonmaxind, latmaxind = find_lonlat_indices_seaice(seaice, np.datetime64(str(year)+'-01'), lonmax, latmax)
+        sim_monthly_area_average = np.zeros(12)
+        sim_monthly_area_std = np.zeros(12)
+        for i in range(12):
+            monthmask = pd.to_datetime( pd.Series(seaice.time)).dt.month == i+1
+            sim_monthly_area_average[i] = np.nanmean(seaice.sim.isel(time=monthmask, lon=slice(lonminind, lonmaxind), 
+                                                          lat=slice(latminind, latmaxind)).values)
+            sim_monthly_area_std[i] = np.nanstd(seaice.sim.isel(time=monthmask, lon=slice(lonminind, lonmaxind), 
+                                                          lat=slice(latminind, latmaxind)).values)
+
+        if(plot==True):
+            plt.plot(np.arange(1,13,1), sim_monthly_area_average)
+            plt.show()
+        if(np.isnan(sim_monthly_area_average).all() == True):
+            minind, maxind = 0, 0
+        else:
+            minind, maxind = np.nanargmin(sim_monthly_area_average), np.nanargmax(sim_monthly_area_average)
+
+        if(np.isnan(sim_monthly_area_std).all() == True):
+            fh_std = np.nan
+        else:
+            fh_std = np.nanmax(sim_monthly_area_std)
+
+        mass_diff = sim_monthly_area_average[maxind] - sim_monthly_area_average[minind]
+        mass_diff_std = sim_monthly_area_std[maxind] + sim_monthly_area_std[minind]
+        fh = mass_diff / 1027. * 1e3
+        fh_std = mass_diff_std / 1027. * 1e3
     
     return fh, fh_std

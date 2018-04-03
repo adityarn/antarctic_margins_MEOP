@@ -21,8 +21,8 @@ def createMapProjections(lat0, lon0, region='Whole'):
     
     #m = Basemap(projection='cyl', llcrnrlon=-120, llcrnrlat=-80, urcrnrlon=55, 
     #            urcrnrlat=-30, lat_0 = -74, lon_0 =-43);
-    
-    m1 = Basemap(projection='ortho', lat_0 =lat0, lon_0 =lon0, resolution='h');
+
+    m1 = Basemap(projection='ortho', lat_0 =lat0, lon_0 =lon0, resolution='l');
     width = m1.urcrnrx - m1.llcrnrx
     height = m1.urcrnry - m1.llcrnry
     dist_x = 8199.491128244028
@@ -31,9 +31,11 @@ def createMapProjections(lat0, lon0, region='Whole'):
     if(region =='Whole'):
         m  = Basemap(projection='ortho', lat_0=lat0, lon_0=lon0, resolution='h', llcrnrx=-width*w_factor, llcrnry=-height*h_factor, urcrnrx=w_factor*width, urcrnry=h_factor*height)
     elif(region == 'Weddell'):
-        m  = Basemap(projection='ortho', lat_0=lat0, lon_0=lon0, resolution='h', llcrnrx=-width*0.225, llcrnry=0.05*height, urcrnrx=0.*width, urcrnry=0.*height)
+        m  = Basemap(projection='ortho', lat_0=lat0, lon_0=lon0, resolution='h', llcrnrx=-width*0.15, llcrnry=0.05*height, urcrnrx=0.*width, urcrnry=0.18*height)
     elif(region == 'Ross'):
-        m  = Basemap(projection='ortho', lat_0=lat0, lon_0=lon0, resolution='h', llcrnrx=-width*0.1, llcrnry=-height*0, urcrnrx=width*0.075, urcrnry=height*0.18)
+        m  = Basemap(projection='ortho', lat_0=lat0, lon_0=180, resolution='h', llcrnrx=-width*0.075, llcrnry=height*0.08, urcrnrx=width*0.03, urcrnry=height*0.18)
+    elif(region == 'Prydz'):
+        m = Basemap(projection='ortho', lat_0=lat0, lon_0=75, resolution='h', llcrnrx=-width*0.1, llcrnry=height*0.12, urcrnrx=width*0.07, urcrnry=height*0.225)
     elif(region == 'Global'):
         m = m1
 
@@ -43,9 +45,9 @@ def createMapProjections(lat0, lon0, region='Whole'):
     m.drawcoastlines(linewidth=0.2)    
 
     parallels = np.arange(-80, -50+1, 5.)    
-    m.drawparallels(parallels,labels=[1,1,1,0], linewidth=0.2)
+    m.drawparallels(parallels,labels=[1,1,1,0], linewidth=0.2) # labels: left,right,top,bottom
     meridians = np.arange(-180, 180, 20.)
-    m.drawmeridians(meridians,labels=[1,1,0,1], linewidth=0.2)
+    m.drawmeridians(meridians,labels=[1,0,0,1], linewidth=0.2)
 
     return m
 
@@ -168,12 +170,27 @@ def plotSurfVarContourf(df,var="PSAL_ADJUSTED", units='Cond.', cmin=33, cmax=35.
 
 def plotDataDensity(df, units='Data Density',
                     save=False, savename="savedFig.png", wd=7, ht=7,
-                    nx=820, ny=820, show=False, lat0 = -90, lon0=0,
+                    cx=10, cy=10, show=False, lat0 = -90, lon0=0,
                     levels=[0, 10, 20, 30, 40, 50, 60, 100, 200, 500], region='Whole'):  #, 90, 150, 250, 500, 1000, 2500]):
     plt.figure(figsize=(wd,ht));
-            
+
     m  = createMapProjections(lat0, lon0, region=region)
+
+    width = m.urcrnrx - m.llcrnrx
+    height = m.urcrnry - m.llcrnry
+    left = [m.llcrnrx, m.llcrnry+height*0.5]
+    right = [m.urcrnrx, m.urcrnry-height*0.5]
+    bottom = [m.llcrnrx+width*0.5, m.llcrnry]
+    top = [m.llcrnrx+width*0.5, m.urcrnry]
     
+    left_lonlat = m(left[0], left[1], inverse=True)
+    right_lonlat = m(right[0], right[1], inverse=True)
+    top_lonlat = m(top[0], top[1], inverse=True)
+    bot_lonlat = m(bottom[0], bottom[1], inverse=True)
+    dist_x = haversine(list(left_lonlat[::-1]), list(right_lonlat[::-1]))
+    dist_y = haversine(top_lonlat[::-1], bot_lonlat[::-1])
+    nx = dist_x // cx
+    ny = dist_x // cy
     #lat_0 = -60, lon_0 = -20,
 
     surfIndex = df.groupby('PROFILE_NUMBER').head(1).index
@@ -198,8 +215,8 @@ def plotDataDensity(df, units='Data Density',
     from matplotlib.colors import BoundaryNorm
     bnorm = BoundaryNorm(levels, ncolors=len(levels)-1, clip=False)
 
-    cmap = LinearSegmentedColormap.from_list(name='linearCmap', colors=['mistyrose', 'salmon', 'darkred'],
-                                             N=len(levels)-1)
+    cmap = LinearSegmentedColormap.from_list(name='linearCmap', colors=['mistyrose', 'salmon', 'darkred'], N=len(levels)-1) 
+        
     CF = m.contourf(XX, YY, ni_masked, vmin=min(levels), vmax=max(levels), levels=levels, norm=bnorm,
                     cmap=cmap, extend='max'); #, cmap='viridis'
     cbar = m.colorbar(CF, pad=0.6, ticks=ticks, spacing='uniform') #boundaries=levels, 
@@ -383,3 +400,79 @@ def find_area(df, m, units='Data Density',
         area[j] = cell_size_x * cell_size_y * number_of_cells
     
     return area
+
+def plotDataDensity2layered(df,mask1,mask2, units='Data Density',
+                    save=False, savename="savedFig.png", wd=7, ht=7,
+                    cx=10, cy=10, show=False, lat0 = -90, lon0=0,
+                    levels=[0, 10, 20, 30, 40, 50, 60, 100, 200, 500], region='Whole', m=None):  #, 90, 150, 250, 500, 1000, 2500]):
+    fig = plt.figure(figsize=(wd,ht));
+    if(m == None):
+        m  = createMapProjections(lat0, lon0, region=region)
+
+    width = m.urcrnrx - m.llcrnrx
+    height = m.urcrnry - m.llcrnry
+    left = [m.llcrnrx, m.llcrnry+height*0.5]
+    right = [m.urcrnrx, m.urcrnry-height*0.5]
+    bottom = [m.llcrnrx+width*0.5, m.llcrnry]
+    top = [m.llcrnrx+width*0.5, m.urcrnry]
+    
+    left_lonlat = m(left[0], left[1], inverse=True)
+    right_lonlat = m(right[0], right[1], inverse=True)
+    top_lonlat = m(top[0], top[1], inverse=True)
+    bot_lonlat = m(bottom[0], bottom[1], inverse=True)
+    dist_x = haversine(list(left_lonlat[::-1]), list(right_lonlat[::-1]))
+    dist_y = haversine(top_lonlat[::-1], bot_lonlat[::-1])
+    nx = dist_x // cx
+    ny = dist_x // cy
+    #lat_0 = -60, lon_0 = -20,
+
+    surfIndex1 = df[mask1].groupby('PROFILE_NUMBER').head(1).index
+    xlons1, ylats1 = m(df[mask1].loc[surfIndex1 , 'LONGITUDE'].values, df[mask1].loc[surfIndex1,'LATITUDE'].values)
+    surfIndex2 = df[mask2].groupby('PROFILE_NUMBER').head(1).index
+    xlons2, ylats2 = m(df[mask2].loc[surfIndex2 , 'LONGITUDE'].values, df[mask2].loc[surfIndex2,'LATITUDE'].values)
+
+    Xgrid = np.linspace(m.llcrnrx, m.urcrnrx, nx)
+    Ygrid = np.linspace(m.llcrnry, m.urcrnry, ny)
+    XX, YY = np.meshgrid(Xgrid, Ygrid)
+    ni1 = np.zeros((len(Ygrid), len(Xgrid)))
+    ni2 = np.zeros((len(Ygrid), len(Xgrid)))
+    
+    for i in range(len(xlons1)):
+        row = np.argmin(np.abs(Ygrid - ylats1[i]))
+        col = np.argmin(np.abs(Xgrid - xlons1[i]))
+        ni1[row , col] = ni1[row, col] + 1
+        
+    for i in range(len(xlons2)):
+        row = np.argmin(np.abs(Ygrid - ylats2[i]))
+        col = np.argmin(np.abs(Xgrid - xlons2[i]))
+        ni2[row , col] = ni2[row, col] + 1
+
+    ni1 = ma.array(ni1)
+    ni1_masked = ma.masked_equal(ni1 ,0)
+    ni2 = ma.array(ni2)
+    ni2_masked = ma.masked_equal(ni2 ,0)
+
+    #zi_masked = ma.masked_array(zi, 0)
+    ticks = levels
+    from matplotlib.colors import BoundaryNorm
+    bnorm = BoundaryNorm(levels, ncolors=len(levels)-1, clip=False)
+    
+    cmap1 = LinearSegmentedColormap.from_list(name='linearCmap', colors=['mistyrose', 'salmon', 'darkred'], N=len(levels)-1) 
+    cmap2 = LinearSegmentedColormap.from_list(name='linearCmap', colors=['paleturquoise', 'deepskyblue', 'navy'], N=len(levels)-1)
+        
+    CF1 = m.contourf(XX, YY, ni1_masked, vmin=min(levels), vmax=max(levels), levels=levels, norm=bnorm,
+                    cmap=cmap1, extend='max'); #, cmap='viridis'
+    CF2 = m.contourf(XX, YY, ni2_masked, vmin=min(levels), vmax=max(levels), levels=levels, norm=bnorm,
+                    cmap=cmap2, extend='max'); #, cmap='viridis'
+
+
+    cbar2 = m.colorbar(CF2, ticks=ticks, spacing='uniform', pad=0.6, location='bottom') #cax=cbaxes2) #boundaries=levels,
+    cbar2.set_label('Beyond 75km from GL')
+    cbar1 = m.colorbar(CF1,  ticks=ticks, spacing='uniform', pad=0.6) #cax=cbaxes1) #boundaries=levels,    
+    cbar1.set_label('Within 75km of GL')    
+    if(save==True):
+        plt.savefig(savename, dpi=300)
+    if(show == True):
+        plt.show();
+    else:
+        plt.close();

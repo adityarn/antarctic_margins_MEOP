@@ -115,19 +115,26 @@ def return_ma_nmin(arr_count, nmin):
     arr_count = ma.masked_less(arr_count, nmin)
     return arr_count.mask
 
-def get_bottom_theta_sal_averages_vs_year(df, mask, years=[], save=False, savename="untitled.png", markersize=3, salmin=0, salmax=0, thetamin=0, thetamax=0, wd=10, ht=4, nmin=3):
+def get_bottom_theta_sal_averages_vs_year(df, mask, years=[], save=False, savename="untitled.png", markersize=3, salmin=0, salmax=0, thetamin=0, thetamax=0, wd=10, ht=4, nmin=3, clim=False):
     if not years:
         years = np.sort(df.loc[mask, 'JULD'].dt.year.unique())
+    if(clim == False):
+        iter_range = len(years)
+    else:
+        iter_range = 1
         
-    salmean = np.zeros(len(years)*12)
-    sal_sd = np.zeros(len(years)*12)
-    sal_count = np.zeros(len(years)*12)
-    thetamean = np.zeros(len(years)*12)
-    theta_sd = np.zeros(len(years)*12)
-    theta_count = np.zeros(len(years)*12)
-    
-    for i in range(len(years)):
-        yearmask = df['JULD'].dt.year == years[i]
+    salmean = np.zeros(iter_range*12)
+    sal_sd = np.zeros(iter_range*12)
+    sal_count = np.zeros(iter_range*12)
+    thetamean = np.zeros(iter_range*12)
+    theta_sd = np.zeros(iter_range*12)
+    theta_count = np.zeros(iter_range*12)
+
+    for i in range(iter_range):
+        if(clim == False):
+            yearmask = df['JULD'].dt.year == years[i]
+        if(clim == True):
+            yearmask = df['JULD'].dt.year.isin(years)
         for j in range(12):
             monthmask = df['JULD'].dt.month == j+1
             salmean[i*12+j] = df.loc[df.loc[mask & yearmask & monthmask].groupby('PROFILE_NUMBER').tail(1).index, 'PSAL_ADJUSTED'].mean()
@@ -149,20 +156,26 @@ def get_bottom_theta_sal_averages_vs_year(df, mask, years=[], save=False, savena
     #theta_yerror = 1.96 * theta_sd / np.sqrt(theta_count)
     theta_yerror = theta_sd
     
-    timeaxis_ticklabel = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'] * len(years)
+    timeaxis_ticklabel = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'] * iter_range
     timeaxis_yearticklabel = years
-    timeaxis = np.arange(1, len(years)*12+1, 1)
+    timeaxis = np.arange(1, iter_range*12+1, 1)
     fig, ax = plt.subplots(figsize=(wd, ht))
-    year_ax = ax.twiny()
-    theta_ax = ax.twinx()
     
-    fig.subplots_adjust(bottom=0.20)
+    theta_ax = ax.twinx()
 
-    year_ax.set_frame_on(True)
-    year_ax.patch.set_visible(False)
-    year_ax.xaxis.set_ticks_position('bottom')
-    year_ax.xaxis.set_label_position('bottom')
-    year_ax.spines['bottom'].set_position(('outward', 30))
+    if(clim == False):
+        year_ax = ax.twiny()
+        fig.subplots_adjust(bottom=0.20)
+
+        year_ax.set_frame_on(True)
+        year_ax.patch.set_visible(False)
+        year_ax.xaxis.set_ticks_position('bottom')
+        year_ax.xaxis.set_label_position('bottom')
+        year_ax.spines['bottom'].set_position(('outward', 30))
+        year_ax.set_xticks(np.arange(1,len(timeaxis), 12))
+        year_ax.set_xticklabels(np.array(years, dtype=str), rotation='0')
+        year_ax.set_xlim(0, timeaxis[-1]+1)
+        
 
     theta_ax.errorbar(timeaxis, thetamean, yerr=theta_yerror, fmt='x', markersize=markersize, capsize=3, color='r', label="Pot. temp.", zorder=1)
     theta_ax.set_xlim(0, timeaxis[-1]+1)
@@ -190,9 +203,6 @@ def get_bottom_theta_sal_averages_vs_year(df, mask, years=[], save=False, savena
     
     ax.grid()
 
-    year_ax.set_xticks(np.arange(1,len(timeaxis), 12))
-    year_ax.set_xticklabels(np.array(years, dtype=str), rotation='0')
-    year_ax.set_xlim(0, timeaxis[-1]+1)
     plt.tight_layout();
     if(save == True):
         plt.savefig(savename)
@@ -208,22 +218,29 @@ def compute_freshwater_input(h_w, abssalmean, rhomean):
         print(h_w, rhomean[s:e][max_ind], abssalmean[s:e][max_ind], rhomean[s:e][min_ind], abssalmean[s:e][min_ind])
         
 
-def get_surface_theta_sal_averages_vs_year(df, mask, years=[], thetamin=0, thetamax=0, salmin=0, salmax=0, save=False, savename="untitled.png", markersize=3, wd=10, ht=4, nmin=3, h_w=0.0):
+def get_surface_theta_sal_averages_vs_year(df, mask, years=[], thetamin=0, thetamax=0, salmin=0, salmax=0, save=False, savename="untitled.png", markersize=3, wd=10, ht=4, nmin=3, h_w=0.0, clim=False):
     if not years:
         years = np.sort(df.loc[mask, 'JULD'].dt.year.unique())
+    if(clim == False):
+        iter_range = len(years)
+    else:
+        iter_range = 1
         
-    salmean = np.zeros(len(years)*12)
-    abssalmean = np.zeros(len(years)*12)
-    rhomean = np.zeros(len(years)*12)
-    sal_sd = np.zeros(len(years)*12)
-    sal_count = np.zeros(len(years)*12)
-    thetamean = np.zeros(len(years)*12)
-    theta_sd = np.zeros(len(years)*12)
-    theta_count = np.zeros(len(years)*12)
+    salmean = np.zeros(iter_range*12)
+    abssalmean = np.zeros(iter_range*12)
+    rhomean = np.zeros(iter_range*12)
+    sal_sd = np.zeros(iter_range*12)
+    sal_count = np.zeros(iter_range*12)
+    thetamean = np.zeros(iter_range*12)
+    theta_sd = np.zeros(iter_range*12)
+    theta_count = np.zeros(iter_range*12)
 
-    freshwater_h = np.zeros(len(years))
-    for i in range(len(years)):
-        yearmask = df['JULD'].dt.year == years[i]
+    freshwater_h = np.zeros(iter_range)
+    for i in range(iter_range):
+        if(clim == False):
+            yearmask = df['JULD'].dt.year == years[i]
+        else:
+            yearmask = df['JULD'].dt.year.isin(years)
         for j in range(12):
             monthmask = df['JULD'].dt.month == j+1
             salmean[i*12+j] = df.loc[df.loc[mask & yearmask & monthmask].groupby('PROFILE_NUMBER').head(1).index, 'PSAL_ADJUSTED'].mean()
@@ -258,23 +275,29 @@ def get_surface_theta_sal_averages_vs_year(df, mask, years=[], thetamin=0, theta
     #theta_yerror = 1.96 * theta_sd / np.sqrt(theta_count)
     theta_yerror = theta_sd
     
-    timeaxis_ticklabel = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'] * len(years)
+    timeaxis_ticklabel = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'] * iter_range
     timeaxis_yearticklabel = []
-    for i in range(len(years)):
-        timeaxis_yearticklabel.insert(len(timeaxis_yearticklabel), str(years[i])+"\n"+str(int(freshwater_h[i]))+"mm yr$^{-1}$")
+    if(clim == False):
+        for i in range(iter_range):
+            timeaxis_yearticklabel.insert(len(timeaxis_yearticklabel), str(years[i])+"\n"+str(int(freshwater_h[i]))+"mm yr$^{-1}$")
         
-    timeaxis = np.arange(1, len(years)*12+1, 1)
+    timeaxis = np.arange(1, iter_range*12+1, 1)
     fig, ax = plt.subplots(figsize=(wd, ht))
-    year_ax = ax.twiny()
-    theta_ax = ax.twinx()
-    
-    fig.subplots_adjust(bottom=0.20)
 
-    year_ax.set_frame_on(True)
-    year_ax.patch.set_visible(False)
-    year_ax.xaxis.set_ticks_position('bottom')
-    year_ax.xaxis.set_label_position('bottom')
-    year_ax.spines['bottom'].set_position(('outward', 30))
+    theta_ax = ax.twinx()
+
+    if(clim == False):
+        fig.subplots_adjust(bottom=0.20)
+        year_ax = ax.twiny()
+        year_ax.set_frame_on(True)
+        year_ax.patch.set_visible(False)
+        year_ax.xaxis.set_ticks_position('bottom')
+        year_ax.xaxis.set_label_position('bottom')
+        year_ax.spines['bottom'].set_position(('outward', 30))
+        year_ax.set_xticks(np.arange(1,iter_range, 12))
+        year_ax.set_xticklabels(timeaxis_yearticklabel, rotation='0')
+        year_ax.set_xlim(0, timeaxis[-1]+1)
+        
 
     theta_ax.errorbar(timeaxis, thetamean, yerr=theta_yerror, fmt='x', markersize=markersize, capsize=3, color='r', label="Pot. temp.")
     theta_ax.set_xlim(0, timeaxis[-1]+1)
@@ -301,9 +324,6 @@ def get_surface_theta_sal_averages_vs_year(df, mask, years=[], thetamin=0, theta
             
     ax.grid()
 
-    year_ax.set_xticks(np.arange(1,len(timeaxis), 12))
-    year_ax.set_xticklabels(timeaxis_yearticklabel, rotation='0')
-    year_ax.set_xlim(0, timeaxis[-1]+1)
     plt.tight_layout();
     if(save == True):
         plt.savefig(savename)
