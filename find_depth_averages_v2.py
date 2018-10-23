@@ -158,7 +158,7 @@ def plot_depth_averages_yearwise(df, mask, years=[], wd=7, ht=5, tmin = -2.3, tm
         ax[2].axvline(x = sigvline[1], color='g', linestyle='--')
 
     plt.tight_layout();
-    plt.legend()
+    #plt.legend(bbox_to_anchor=(1.1, 1.05))
     if(save==True):
         plt.savefig(savename, dpi=150)
 

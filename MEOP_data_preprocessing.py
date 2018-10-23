@@ -28,15 +28,7 @@ from scipy.interpolate import griddata
 
 # In[5]:
 
-filenamesAUS = pd.read_csv("filenamesAUS.txt", header=None) 
-filenamesBRA = pd.read_csv("filenamesBRA.txt", header=None) 
-filenamesCHN = pd.read_csv("filenamesCHN.txt", header=None) 
-filenamesFRA = pd.read_csv("filenamesFRA.txt", header=None)
-filenamesGER = pd.read_csv("filenamesGER.txt", header=None)
-filenamesNOR = pd.read_csv("filenamesNOR.txt", header=None)
-filenamesSA = pd.read_csv("filenamesSA.txt", header=None)
-filenamesUK = pd.read_csv("filenamesUK.txt", header=None)
-filenamesUSA = pd.read_csv("filenamesUSA.txt", header=None)
+filenames = pd.read_csv("filenames.txt", header=None) 
 
 
 # In[6]:
@@ -54,11 +46,11 @@ def read_all_nc(filenames):
 
 # func to create a merged pandas dataframe of all the netcdf files
 
-def create_merged_df(arr_data):
-    for i in range((len(arr_data))):
-        
-        nlev = len(arr_data[i]['PRES_ADJUSTED'][0])
-        nprof = len(arr_data[i]['PRES_ADJUSTED'])
+def create_merged_df(filenames):
+    for i in range((len(filenames))):
+        arr_data = xr.open_dataset(filenames[i])
+        nlev = len(arr_data['PRES_ADJUSTED'][0])
+        nprof = len(arr_data['PRES_ADJUSTED'])
         if(i == 0):
             NPROF = np.arange(nprof)
             NPROF = np.array([[NPROF[j]] * nlev for j in range(len(NPROF)) ])
@@ -68,45 +60,50 @@ def create_merged_df(arr_data):
             NPROF = np.array([[NPROF[j]] * nlev for j in range(len(NPROF)) ])
         
         ind = np.arange(nprof*nlev)
-        lat = np.array([[arr_data[i]["LATITUDE"][j].values]* nlev for j in range(nprof) ])
-        lon = np.array([[arr_data[i]["LONGITUDE"][j].values]* nlev for j in range(nprof) ])
-        posqc = np.array([[arr_data[i]["POSITION_QC"][j].values]* nlev for j in range(nprof) ])
-        juld = np.array([[arr_data[i]["JULD"][j].values]* nlev for j in range(nprof) ])
+        lat = np.array([[arr_data["LATITUDE"][j].values]* nlev for j in range(nprof) ])
+        lon = np.array([[arr_data["LONGITUDE"][j].values]* nlev for j in range(nprof) ])
+        posqc = np.array([[arr_data["POSITION_QC"][j].values]* nlev for j in range(nprof) ])
+        juld = np.array([[arr_data["JULD"][j].values]* nlev for j in range(nprof) ])
         
         if(i == 0):    
-            df = {'PLATFORM_NUMBER': pd.Series([str(arr_data[i]["PLATFORM_NUMBER"][0].values)]*len(ind), index=ind), 
+            df = {'PLATFORM_NUMBER': pd.Series([str(arr_data["PLATFORM_NUMBER"][0].values)]*len(ind), index=ind), 
                   'PROFILE_NUMBER' : pd.Series(NPROF.flatten(), index=ind ),
-                  'TEMP_ADJUSTED': pd.Series(arr_data[i]["TEMP_ADJUSTED"].values.flatten(), index=ind), 
-                  'PSAL_ADJUSTED': pd.Series(arr_data[i]["PSAL_ADJUSTED"].values.flatten(), index=ind), 
-                  'PRES_ADJUSTED': pd.Series(arr_data[i]["PRES_ADJUSTED"].values.flatten(), index=ind),  
-                  'TEMP_ADJUSTED_QC': pd.Series(arr_data[i]["TEMP_ADJUSTED_QC"].values.flatten(), index=ind), 
-                  'PRES_ADJUSTED_QC': pd.Series(arr_data[i]["PRES_ADJUSTED_QC"].values.flatten(), index=ind), 
-                  'PSAL_ADJUSTED_QC': pd.Series(arr_data[i]["PSAL_ADJUSTED_QC"].values.flatten(), index=ind),  
+                  'TEMP_ADJUSTED': pd.Series(arr_data["TEMP_ADJUSTED"].values.flatten(), index=ind), 
+                  'PSAL_ADJUSTED': pd.Series(arr_data["PSAL_ADJUSTED"].values.flatten(), index=ind), 
+                  'PRES_ADJUSTED': pd.Series(arr_data["PRES_ADJUSTED"].values.flatten(), index=ind),  
+                  'PRES_ADJUSTED_QC': pd.Series(arr_data["PRES_ADJUSTED_QC"].values.flatten(), index=ind), 
+                  'PRES_ADJUSTED_ERROR':pd.Series(arr_data["PRES_ADJUSTED_ERROR"].values.flatten(), index=ind), 
+                  'TEMP_ADJUSTED_QC': pd.Series(arr_data["TEMP_ADJUSTED_QC"].values.flatten(), index=ind), 
+                  'TEMP_ADJUSTED_ERROR': pd.Series(arr_data["TEMP_ADJUSTED_ERROR"].values.flatten(), index=ind), 
+                  'PSAL_ADJUSTED_QC': pd.Series(arr_data["PSAL_ADJUSTED_QC"].values.flatten(), index=ind),  
+                  'PSAL_ADJUSTED_ERROR':pd.Series(arr_data["PSAL_ADJUSTED_ERROR"].values.flatten(), index=ind),  
                   'JULD': pd.Series(juld.flatten(), index=ind),  
                   'LATITUDE': pd.Series(lat.flatten(), index=ind),  
                   'LONGITUDE': pd.Series(lon.flatten(), index=ind),  
                   'POSITION_QC': pd.Series(posqc.flatten(), index=ind) }
             df = pd.DataFrame(df)
         else:
-            df_i = {'PLATFORM_NUMBER': pd.Series([str(arr_data[i]["PLATFORM_NUMBER"][0].values)]*len(ind), index=ind), 
-                    'PROFILE_NUMBER' : pd.Series(NPROF.flatten(), index=ind ),
-                    'TEMP_ADJUSTED': pd.Series(arr_data[i]["TEMP_ADJUSTED"].values.flatten(), index=ind), 
-                    'PSAL_ADJUSTED': pd.Series(arr_data[i]["PSAL_ADJUSTED"].values.flatten(), index=ind), 
-                    'PRES_ADJUSTED': pd.Series(arr_data[i]["PRES_ADJUSTED"].values.flatten(), index=ind),  
-                    'TEMP_ADJUSTED_QC': pd.Series(arr_data[i]["TEMP_ADJUSTED_QC"].values.flatten(), index=ind), 
-                    'PRES_ADJUSTED_QC': pd.Series(arr_data[i]["PRES_ADJUSTED_QC"].values.flatten(), index=ind), 
-                    'PSAL_ADJUSTED_QC': pd.Series(arr_data[i]["PSAL_ADJUSTED_QC"].values.flatten(), index=ind),  
-                    'JULD': pd.Series(juld.flatten(), index=ind),  
-                    'LATITUDE': pd.Series(lat.flatten(), index=ind),  
-                    'LONGITUDE': pd.Series(lon.flatten(), index=ind),  
-                    'POSITION_QC': pd.Series(posqc.flatten(), index=ind) }
+            df_i = {'PLATFORM_NUMBER': pd.Series([str(arr_data["PLATFORM_NUMBER"][0].values)]*len(ind), index=ind), 
+                  'PROFILE_NUMBER' : pd.Series(NPROF.flatten(), index=ind ),
+                  'TEMP_ADJUSTED': pd.Series(arr_data["TEMP_ADJUSTED"].values.flatten(), index=ind), 
+                  'PSAL_ADJUSTED': pd.Series(arr_data["PSAL_ADJUSTED"].values.flatten(), index=ind), 
+                  'PRES_ADJUSTED': pd.Series(arr_data["PRES_ADJUSTED"].values.flatten(), index=ind),  
+                  'PRES_ADJUSTED_QC': pd.Series(arr_data["PRES_ADJUSTED_QC"].values.flatten(), index=ind), 
+                  'PRES_ADJUSTED_ERROR':pd.Series(arr_data["PRES_ADJUSTED_ERROR"].values.flatten(), index=ind), 
+                  'TEMP_ADJUSTED_QC': pd.Series(arr_data["TEMP_ADJUSTED_QC"].values.flatten(), index=ind), 
+                  'TEMP_ADJUSTED_ERROR': pd.Series(arr_data["TEMP_ADJUSTED_ERROR"].values.flatten(), index=ind), 
+                  'PSAL_ADJUSTED_QC': pd.Series(arr_data["PSAL_ADJUSTED_QC"].values.flatten(), index=ind),  
+                  'PSAL_ADJUSTED_ERROR':pd.Series(arr_data["PSAL_ADJUSTED_ERROR"].values.flatten(), index=ind),  
+                  'JULD': pd.Series(juld.flatten(), index=ind),  
+                  'LATITUDE': pd.Series(lat.flatten(), index=ind),  
+                  'LONGITUDE': pd.Series(lon.flatten(), index=ind),  
+                  'POSITION_QC': pd.Series(posqc.flatten(), index=ind)  }
             df_i = pd.DataFrame(df_i)
             
             #pdb.set_trace()
             df = df.append(df_i, ignore_index=True)
-            
+            del(arr_data)
     return df
-
 
 # In[8]:
 print("BEginning reading in nc files")
@@ -218,7 +215,7 @@ dfm['DENSITY_INSITU'] = gsw.density.rho(SA, CT, dfm['PRES_ADJUSTED'])
 
 dfm['POT_DENSITY'] = gsw.density.sigma0(SA, CT)
 dfm['CTEMP'] = CT
-
+dfm['SA'] = SA
 
 mask_notbad_temp = ~(dfm['TEMP_ADJUSTED_QC'] == 4)
 mask_notbad_sal = ~(dfm['PSAL_ADJUSTED_QC'] == 4)

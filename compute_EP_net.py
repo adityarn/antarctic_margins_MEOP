@@ -80,9 +80,9 @@ def freshwater_flux_compute(evap, precip, precip_error, lonmin, lonmax, latmin, 
         elonminind , elatminind = find_lonlat_indices_evap(evap[0], lonmin, latmin)
         elonmaxind, elatmaxind = find_lonlat_indices_evap(evap[0], lonmax, latmax)
 
-        ptimeminind, plonminind, platminind = find_lonlat_indices_precip(precip, np.datetime64(str(year[0])+"-01-01"), 
+        ptimeminind, plonminind, platminind = find_lonlat_indices_precip(precip, np.datetime64("2004-01-01"), 
                                                                          lonmin, latmin)
-        ptimemaxind, plonmaxind, platmaxind = find_lonlat_indices_precip(precip, np.datetime64(str(year[-1])+"-12-01"), 
+        ptimemaxind, plonmaxind, platmaxind = find_lonlat_indices_precip(precip, np.datetime64("2015-12-01"), 
                                                                          lonmax, latmax)
         for i in range(len(evap)):
             if(i == 0):

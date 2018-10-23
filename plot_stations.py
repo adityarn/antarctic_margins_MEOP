@@ -4,6 +4,9 @@ from matplotlib.colors import LinearSegmentedColormap
 import numpy as np
 import mpld3
 from mpld3 import plugins
+import matplotlib.gridspec as gridspec # GRIDSPEC !
+import xarray as xr
+from matplotlib.colorbar import Colorbar
 
 def createMapProjections(lat0, lon0, region='Whole'):
     #m = Basemap(projection='hammer',lon_0=270)
@@ -133,18 +136,18 @@ def plot_station_locations_with_mouseover(positions, title=' ', save=False, save
     plt.show();
 
 
-def plot_station_locations(positions, title=' ', save=False, savename="untitled.png", wd=12, ht=12, region='Whole'):
+def plot_station_locations(positions, title=' ', save=False, savename="untitled.png", wd=12, ht=12, region='Whole', plotBathy=True):
     x = positions[:,1]
     y = positions[:,0]
     
-    fig = plt.figure(figsize=(wd,ht));
-    ax = plt.axes()
     lat0 = -90
     lon0 = 0
-    m = createMapProjections(lat0, lon0, region=region)    
-
-    xgrid,ygrid = m(x,y)    
     
+    plt.figure(1, figsize=(wd,ht));
+    gs = gridspec.GridSpec(2, 1, height_ratios=[1, 0.05])
+    mapax = plt.subplot(gs[0, 0])
+    m  = createMapProjections(lat0, lon0, region=region)
+
     m.drawmapboundary();
     m.drawcoastlines()
     #m.fillcontinents(color='#cc9966');
@@ -160,9 +163,26 @@ def plot_station_locations(positions, title=' ', save=False, savename="untitled.
     meridians = np.arange(-180, 180, 20.)
     labels = [1,1,0,1]
     m.drawmeridians(meridians, labels=labels)
-
-    m.scatter(x, y, latlon=True)
+    m.scatter(x, y, latlon=True, color='r', s=0.25, marker='.')
+    
+    if(plotBathy == True):
+        bathy = xr.open_dataset('/media/data/Datasets/Bathymetry/GEBCO_2014_2D.nc')
+        lonlen = len(bathy.lon)
+        lonindices = np.arange(0, lonlen+1, 30)
+        lonindices[-1] = lonindices[-1] - 1
+        bathyS = bathy.isel(lon=lonindices, lat=np.arange(0, 3600, 5))
+        clevs = np.array([-100, -500, -1000, -1500, -2000, -3000,-6000])[::-1]
+        
+        longrid, latgrid = np.meshgrid(bathyS.lon.values, bathyS.lat.values)
+        cs = m.contour(longrid, latgrid, bathyS.elevation.where(bathyS.elevation <= 0).values,  latlon=True, levels=clevs, linewidths=0.2, extend='min', ax=mapax) #, , cmap='rainbow'   , levels=clevs,
+        ## plt.figure(2)
+        ## cf = plt.contourf(longrid, latgrid,bathyS.elevation.where(bathyS.elevation <= 0).values, levels=clevs, extend='min') #, , cmap='rainbow'   , levels=clevs,
+        ## plt.figure(1)
+        bathycolorbar = plt.subplot(gs[1, 0])
+        cbar1 = Colorbar(ax = bathycolorbar, mappable = cs, orientation = 'horizontal')
+        cbar1.ax.get_children()[0].set_linewidths(5)
+        cbar1.set_label('Depth (m)')
 
     if(save == True):
-        plt.savefig(savename)
+        plt.savefig(savename, dpi=900)
     plt.show()

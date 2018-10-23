@@ -5,6 +5,7 @@ import scipy.interpolate as interpolate
 import pandas as pd
 import numpy as np
 import numpy.ma as ma
+import matplotlib
 
 # prints the yearly freshwater flux equivalent height as computed from salinity conservation 
 # in the top 100m of the water column
@@ -65,7 +66,8 @@ def print_yearly_fh(fh, years, area, verbose=False, plot=False, wd=5, ht=3, save
     return net_glacier_fh
 
 
-def print_climatological_fh(fh, area, verbose=False, plot=False, wd=5, ht=3, save=False, savename='untitled.png', bwd=.2):
+def print_climatological_fh(fh, area, verbose=False, plot=False, wd=5, ht=3, save=False, savename='untitled.png', bwd=.2, show_legend=False, ymin=0, ymax=2500, fontsize=14):
+    matplotlib.rcParams.update({'font.size': fontsize})        
     gross_fh = 0.0
     gross_fh_err = 0.0
     net_glacier_fh = 0.0
@@ -102,24 +104,29 @@ def print_climatological_fh(fh, area, verbose=False, plot=False, wd=5, ht=3, sav
         ax.set_xticklabels(xticklabel, rotation=90)
         ax.set_ylabel("$f_h$ mm yr$^{-1}$")
         ax2.set_ylabel("$M_{glacial}$ (Gta$^{-1}$)")
+        ax.set_ylim(ymin, ymax)
         ax.grid()
         yaxlim = ax.get_ylim()
         ratio1 = yaxlim[0] / (yaxlim[1] - yaxlim[0])
         y2axlim = ax2.get_ylim()
         bot2 = ratio1 * y2axlim[1] / (1 + ratio1)
         ax2.set_ylim(bot2, y2axlim[1])
-        
-        #lns = lns1+lns2+lns3+lns4+lns5
-        lns = lns1+lns2+lns3+lns4+lns5
-        labs = [l.get_label() for l in lns]
-        handles, labels = ax.get_legend_handles_labels()
-        handles2, labels2 = ax2.get_legend_handles_labels()
-        lgd = ax.legend(handles+handles2, labels+labels2, loc=0, bbox_to_anchor=(.93, -0.3), fancybox=True, ncol=3)
-        #lgd = ax.legend(lns, labs, loc=0, bbox_to_anchor=(1., -0.5), fancybox=True, ncol=3)
+
+        if(show_legend == True):
+            #lns = lns1+lns2+lns3+lns4+lns5
+            lns = lns1+lns2+lns3+lns4+lns5
+            labs = [l.get_label() for l in lns]
+            handles, labels = ax.get_legend_handles_labels()
+            handles2, labels2 = ax2.get_legend_handles_labels()
+            lgd = ax.legend(handles+handles2, labels+labels2, loc=0, bbox_to_anchor=(.93, -0.3), fancybox=True, ncol=3)
+            #lgd = ax.legend(lns, labs, loc=0, bbox_to_anchor=(1., -0.5), fancybox=True, ncol=3)
         
         plt.tight_layout()
         if(save == True):
-            plt.savefig(savename, dpi=150, bbox_extra_artists=(lgd,), bbox_inches='tight')
+            if(show_legend == True):
+                plt.savefig(savename, dpi=150, bbox_extra_artists=(lgd,), bbox_inches='tight')
+            else:
+                plt.savefig(savename, dpi=150)
         plt.show()
     print(net_glacier_fh_err)
     return net_glacier_fh

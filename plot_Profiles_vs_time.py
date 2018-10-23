@@ -10,6 +10,7 @@ import compute_EP_net as computeEPnet
 import importlib
 importlib.reload(computeEPnet)
 import xarray as xr
+import matplotlib
 
 def truncate(f, n):
     '''Truncates/pads a float f to n decimal places without rounding'''
@@ -23,7 +24,8 @@ def truncate(f, n):
 def plot_sal_contours_with_time(df, years=[], bins=5, wd=12, ht=5, varmin=33, varmax=35, nlevs=10,
                                     colorunit='Salinity (PSU)', save=False, savename="Untitled.png", 
                                     zbin=20, zmin=0, nmin=3, depth_max=0.0, levs=[], type=1, integrationDepth=100, plot=True, precip_dir="/media/data/Datasets/AirSeaFluxes/GPCPprecip",
-                                    evap_dir="/media/data/Datasets/AirSeaFluxes/WHOIevap", clim=False, lonmin=np.nan, lonmax=np.nan):
+                                    evap_dir="/media/data/Datasets/AirSeaFluxes/WHOIevap", clim=False, lonmin=np.nan, lonmax=np.nan, fontsize=14, show_legend=False):
+    matplotlib.rcParams.update({'font.size': fontsize})        
     if not years:
         years = np.sort(df.loc[:, 'JULD'].dt.year.unique())
     if(clim == False):
@@ -31,7 +33,7 @@ def plot_sal_contours_with_time(df, years=[], bins=5, wd=12, ht=5, varmin=33, va
         evap_year_start, evap_year_end = years[0], years[-1]
     else:
         iter_range = 1
-        evap_year_start, evap_year_end = 2007, 2015
+        evap_year_start, evap_year_end = 2004, 2015
     
     evap_total = []
     for i in range(evap_year_start, evap_year_end+1, 1):
@@ -200,10 +202,12 @@ def plot_sal_contours_with_time(df, years=[], bins=5, wd=12, ht=5, varmin=33, va
         #legend([plot1], "title", prop=fontP)
         artists, labels = CF2.legend_elements(variable_name="\\sigma")
         labels[-1] = 'count $< $'+str(nmin)
-        if(clim == False):
-            lgd = plt.legend(artists, labels, handleheight=2, loc='upper left', bbox_to_anchor=(0.3, -0.19), fancybox=True, ncol=3)
-        if(clim == True):
-            lgd = plt.legend(artists, labels, handleheight=2, loc='upper left', bbox_to_anchor=(0.3, -0.1), fancybox=True, ncol=3)
+        
+        if(show_legend == True):
+            if(clim == False):
+                lgd = plt.legend(artists, labels, handleheight=2, loc='upper left', bbox_to_anchor=(0.3, -0.19), fancybox=True, ncol=3)
+            if(clim == True):
+                lgd = plt.legend(artists, labels, handleheight=2, loc='upper left', bbox_to_anchor=(0.3, -0.1), fancybox=True, ncol=3)
             
         if(zmin != 0):
             ax.set_ylim(zmin, 0)
@@ -211,7 +215,10 @@ def plot_sal_contours_with_time(df, years=[], bins=5, wd=12, ht=5, varmin=33, va
             ax.set_ylim(zlowest, 0)
 
         if(save== True):
-            plt.savefig(savename, dpi=150, bbox_extra_artists=(lgd,), bbox_inches='tight')
+            if(show_legend == True):
+                plt.savefig(savename, dpi=150, bbox_extra_artists=(lgd,), bbox_inches='tight')
+            else:
+                plt.savefig(savename, dpi=150)
         plt.show()
         
     return [ [freshwater_h, freshwater_h_error] , \
@@ -221,7 +228,8 @@ def plot_sal_contours_with_time(df, years=[], bins=5, wd=12, ht=5, varmin=33, va
 
 def plot_CT_contours_with_time(df, years=[], bins=5, wd=12, ht=5, varmin=-3, varmax=1, nlevs=10,
                                     colorunit='Pot. temp. $\\theta^o$C', save=False, savename="Untitled.png", 
-                                    zbin=20, zmin=0, nmin=3, depth_max=0.0, levs=[]):
+                                    zbin=20, zmin=0, nmin=3, depth_max=0.0, levs=[], clim=True, show_legend=False, fontsize=14):
+    matplotlib.rcParams.update({'font.size': fontsize})        
     if(depth_max < 0):
         zlowest = depth_max
     else:
@@ -230,13 +238,17 @@ def plot_CT_contours_with_time(df, years=[], bins=5, wd=12, ht=5, varmin=-3, var
     depth_bins = np.linspace(zlowest, 0, number_bins)
     if not years:
         years = np.sort(df.loc[:, 'JULD'].dt.year.unique())
+    if(clim == True):
+        iter_range = 1
+    else:
+        iter_range = len(years)
         
-    timeaxis_ticklabel = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'] * len(years)
+    timeaxis_ticklabel = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'] * iter_range
     timeaxis_yearticklabel = years
-    timeaxis = np.arange(1, len(years)*12+1, 1)
+    timeaxis = np.arange(1, iter_range*12+1, 1)
     
     fig, ax = plt.subplots(figsize=(wd, ht))
-    year_ax = ax.twiny()
+
 
         
     var_binned = np.zeros((len(timeaxis), len(depth_bins)))
@@ -246,9 +258,12 @@ def plot_CT_contours_with_time(df, years=[], bins=5, wd=12, ht=5, varmin=-3, var
     rhomean = np.zeros((len(timeaxis), len(depth_bins)-1))
     var_count = np.zeros((len(timeaxis), len(depth_bins)-1))
     var_sd = np.zeros((len(timeaxis), len(depth_bins)-1))
-    freshwater_h = np.zeros((len(years), len(depth_bins)-1))
-    for i in range(len(years)):
-        yearmask = df['JULD'].dt.year == years[i]
+
+    for i in range(iter_range):
+        if(clim == False):
+            yearmask = df['JULD'].dt.year == years[i]
+        else:
+            yearmask = [True] * len(df)
         for j in range(12):
             monthmask = df['JULD'].dt.month == j+1
             timeSlice_df = df.loc[yearmask & monthmask]
@@ -262,11 +277,17 @@ def plot_CT_contours_with_time(df, years=[], bins=5, wd=12, ht=5, varmin=-3, var
     #var_sd = ma.masked_array(var_sd, mask= ma.masked_less(var_count, nmin).mask)
     
     #fig.subplots_adjust(hspace=1.3)
-    year_ax.set_frame_on(True)
-    year_ax.patch.set_visible(False)
-    year_ax.xaxis.set_ticks_position('bottom')
-    year_ax.xaxis.set_label_position('bottom')
-    year_ax.spines['bottom'].set_position(('outward', 30))
+    if(clim == False):
+        year_ax = ax.twiny()
+        year_ax.set_frame_on(True)
+        year_ax.patch.set_visible(False)
+        year_ax.xaxis.set_ticks_position('bottom')
+        year_ax.xaxis.set_label_position('bottom')
+        year_ax.spines['bottom'].set_position(('outward', 30))
+        year_ax.set_xticks(np.arange(1,len(timeaxis)+1, 12))
+        year_ax.set_xticklabels(np.array(years, dtype=str), rotation='0')
+        year_ax.set_xlim(1, timeaxis[-1])
+        
 
     zbin_midpoint = depth_bins[:-1] + np.diff(depth_bins)*0.5
     #zbin_midpoint = np.insert(zbin_midpoint, len(zbin_midpoint), 0)
@@ -281,13 +302,13 @@ def plot_CT_contours_with_time(df, years=[], bins=5, wd=12, ht=5, varmin=-3, var
     
     if(depth_max < 0):
         ax.set_ylim(depth_max, 0)
-    year_ax.set_xticks(np.arange(1,len(timeaxis)+1, 12))
-    year_ax.set_xticklabels(np.array(years, dtype=str), rotation='0')
-    year_ax.set_xlim(1, timeaxis[-1])
 
     #cbaxes = fig.add_axes([1.005, 0.075, 0.02, 0.885]) 
     #cbar1 = fig.colorbar(CF, cax=cbaxes)
-    cbar1 = fig.colorbar(CF, ax=[ax, year_ax], pad=0.015)
+    if(clim == False):
+        cbar1 = fig.colorbar(CF, ax=[ax, year_ax], pad=0.015)
+    else:
+        cbar1 = fig.colorbar(CF, ax=ax, pad=0.015)
     #cbar1.set_label(colorunit, labelpad=4, y=0.5)
     cbar1.set_label(colorunit)
 
@@ -303,8 +324,13 @@ def plot_CT_contours_with_time(df, years=[], bins=5, wd=12, ht=5, varmin=-3, var
     #legend([plot1], "title", prop=fontP)
     artists, labels = CF2.legend_elements(variable_name="\\sigma")
     labels[-1] = 'count $< $'+str(nmin)
-    plt.legend(artists, labels, handleheight=2, loc='upper left', bbox_to_anchor=(1.12, 1))
-        
+
+    if(show_legend == True):
+        if(clim == False):
+            lgd = plt.legend(artists, labels, handleheight=2, loc='upper left', bbox_to_anchor=(0.3, -0.19), fancybox=True, ncol=3)
+        if(clim == True):
+            lgd = plt.legend(artists, labels, handleheight=2, loc='upper left', bbox_to_anchor=(0.3, -0.1), fancybox=True, ncol=3)
+    
     if(zmin != 0):
         ax.set_ylim(zmin, 0)
     else:
@@ -312,7 +338,10 @@ def plot_CT_contours_with_time(df, years=[], bins=5, wd=12, ht=5, varmin=-3, var
     
     #plt.tight_layout();    
     if(save== True):
-        plt.savefig(savename, dpi=150)
+        if(show_legend == True):
+            plt.savefig(savename, dpi=150, bbox_extra_artists=(lgd,), bbox_inches='tight')
+        else:
+            plt.savefig(savename, dpi=150)
     plt.show()
 
 
@@ -387,7 +416,7 @@ def find_sim_freshwater_h(lonmin, lonmax, latmin, latmax, plot=False, clim=False
             fh_std = np.nanmax(sim_monthly_area_std)
 
         mass_diff = sim_monthly_area_average[maxind] - sim_monthly_area_average[minind]
-        mass_diff_std = sim_monthly_area_std[maxind] + sim_monthly_area_std[minind]
+        mass_diff_std = np.sqrt(sim_monthly_area_std[maxind]**2 + sim_monthly_area_std[minind]**2)
         fh = mass_diff / 1027. * 1e3
         fh_std = mass_diff_std / 1027. * 1e3
     
