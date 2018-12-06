@@ -9,6 +9,165 @@ from scipy import stats
 from scipy.stats import pearsonr
 import numpy.ma as ma
 
+
+###################################################################
+###################################################################
+############### BOOTSTRAPPER FUNCTION #############################
+def resample_depthbinData_profWise(timeDepthSliced, reps=1000):
+    sliceArray = timeDepthSliced.loc[:, ["PSAL_ADJUSTED", "CTEMP", "gamman"] ].values
+    try:
+        randidxr = np.random.choice(len(sliceArray), (len(sliceArray), reps), replace=True )
+        DSWcount = np.count_nonzero( ((sliceArray[randidxr][:,:, 2] > 28.27) & (sliceArray[randidxr][:, :, 0] > 34.4) & (sliceArray[randidxr][:,:, 1] <= -1.8)), axis=0 ) / float(len(sliceArray))
+        lsswCount = np.count_nonzero( ((sliceArray[randidxr][:,:, 0] >= 34.3) & (sliceArray[randidxr][:,:, 0] <= 34.4) & (sliceArray[randidxr][:,:, 1] <= -1.5) & (sliceArray[randidxr][:,:, 1] > -1.9) ), axis=0 ) / float(len(sliceArray))
+        ISWcount = np.count_nonzero( (sliceArray[randidxr][:,:,1] < -1.9), axis=0) / float(len(sliceArray))
+        CDWcount = np.count_nonzero( ((sliceArray[randidxr][:,:,0] >= 34.5) & (sliceArray[randidxr][:,:,1] >= 0.0)), axis=0 ) / float(len(sliceArray))
+        mCDWcount = np.count_nonzero( ((sliceArray[randidxr][:,:,1] > -1.8) & (sliceArray[randidxr][:,:,1] < 0) & (sliceArray[randidxr][:,:,2] > 28) & (sliceArray[randidxr][:,:,2] < 28.27)) , axis=0) / float(len(sliceArray)) # Williams 2016
+        
+        return np.array([DSWcount, lsswCount, ISWcount, CDWcount, mCDWcount])
+    except:
+        return np.full_like(np.zeros((5,reps)), np.nan)
+#order of return: DSW, lssw, ISW, mCDW, CDW
+###################################################################
+###################################################################
+
+
+def waterMassThickness_bootstrapper_profileWise(axwmb,axdod, df, ymin=0, ymax=None, yticks=[], zbin=20, wd = 0.1, fontsize=8, showlegend=False, retValue=False, ymax_dod=None, yticks_dod=[], reps=100, markersize=3):
+    matplotlib.rcParams.update({'font.size': fontsize})        # setting fontsize for plot elements    
+
+    DSWthickness = np.zeros(12)
+    DSW_CI = np.zeros((12,2))
+    DSW_yerr = np.zeros((12,2))    
+
+    lsswthickness = np.zeros(12)
+    lssw_CI = np.zeros((12,2))
+    lssw_yerr = np.zeros((12,2))    
+
+    ISWthickness = np.zeros(12)
+    ISW_CI = np.zeros((12,2))
+    ISW_yerr = np.zeros((12,2))    
+
+    CDWthickness = np.zeros(12)
+    CDW_CI = np.zeros((12,2))
+    CDW_yerr = np.zeros((12,2))    
+
+    mCDWthickness = np.zeros(12)
+    mCDW_CI = np.zeros((12,2))
+    mCDW_yerr = np.zeros((12,2))    
+
+    totalWaterColumnSampled = np.zeros(12)
+    
+    for i in range(12):
+        monthmask = df.JULD.dt.month.isin([i+1]) & df.CTEMP.notnull()
+        timeSlice = df.loc[monthmask]
+
+        datalength = len(timeSlice)
+
+        if datalength > 0:
+            zlowest = timeSlice.DEPTH.min() 
+            number_bins = np.abs(zlowest) // zbin
+            zbin_exact = np.abs(zlowest) / float(number_bins)
+            depth_bins = np.linspace(zlowest-1, 0, number_bins)
+
+            DSW = (timeSlice.gamman > 28.27) & (timeSlice.PSAL_ADJUSTED > 34.4) & (timeSlice.CTEMP <= -1.8)
+            lssw = (timeSlice.PSAL_ADJUSTED >= 34.3) & (timeSlice.PSAL_ADJUSTED <= 34.4) & (timeSlice.CTEMP <= -1.5) & (timeSlice.CTEMP > -1.9)
+            ISW = (timeSlice.CTEMP < -1.9)
+            CDW = (timeSlice.CTEMP >= 0) & (timeSlice.PSAL_ADJUSTED >= 34.5)
+            mCDW = (timeSlice.CTEMP < 0) & (timeSlice.CTEMP > -1.8) & (timeSlice.gamman > 28) & (timeSlice.gamman < 28.27)
+            
+            totalcount = timeSlice.groupby(pd.cut(timeSlice.DEPTH, depth_bins) ).CTEMP.count().values
+            DSWcount = timeSlice.loc[DSW].groupby(pd.cut(timeSlice.loc[DSW].DEPTH, depth_bins) ).CTEMP.count().values
+            LSSWcount = timeSlice.loc[lssw].groupby(pd.cut(timeSlice.loc[lssw].DEPTH, depth_bins) ).CTEMP.count().values
+            ISWcount = timeSlice.loc[ISW].groupby(pd.cut(timeSlice.loc[ISW].DEPTH, depth_bins) ).CTEMP.count().values
+            mCDWcount = timeSlice.loc[mCDW].groupby(pd.cut(timeSlice.loc[mCDW].DEPTH, depth_bins) ).CTEMP.count().values
+            CDWcount = timeSlice.loc[CDW].groupby(pd.cut(timeSlice.loc[CDW].DEPTH, depth_bins) ).CTEMP.count().values
+            
+            DSWthickness[i] = np.nansum((DSWcount / totalcount) * zbin_exact)
+            
+            lsswthickness[i] = np.nansum((LSSWcount / totalcount) * zbin_exact)
+            
+            ISWthickness[i] = np.nansum((ISWcount / totalcount) * zbin_exact)
+
+            CDWthickness[i] = np.nansum((CDWcount / totalcount) * zbin_exact)
+
+            mCDWthickness[i] = np.nansum((mCDWcount / totalcount) * zbin_exact)
+
+            totalWaterColumnSampled[i] = np.nansum(totalcount / totalcount) * zbin_exact
+            # computing the Monte Carlo means using repetetive resampling with replacement, with number of repetitions = reps
+            # note that if a depth bin has low number of samples, then the resampling method does not add any new information
+            MCmeans = np.stack(timeSlice.groupby(pd.cut(timeSlice.DEPTH, np.linspace(zlowest-1, 0, number_bins) ) ).apply(resample_depthbinData_profWise, reps=100).values)
+            
+            DSW_CI[i] =  np.nanpercentile( np.nansum( (MCmeans[:, 0, :] * zbin), axis=0 ), [0.025, 0.975])
+            DSW_yerr[i] = [abs(DSWthickness[i] - DSW_CI[i][0]), abs(DSWthickness[i] - DSW_CI[i][1]) ]
+            
+            lssw_CI[i] =  np.nanpercentile( np.nansum( (MCmeans[:, 1, :] * zbin), axis=0 ), [0.025, 0.975])
+            lssw_yerr[i] = [abs(lsswthickness[i] - lssw_CI[i][0]), abs(lsswthickness[i] - lssw_CI[i][0]) ]
+            
+            ISW_CI[i] =  np.nanpercentile( np.nansum( (MCmeans[:, 2, :] * zbin), axis=0 ), [0.025, 0.975])
+            ISW_yerr[i] = [abs(ISWthickness[i] - ISW_CI[i][0]), abs(ISWthickness[i] - ISW_CI[i][1]) ]
+            
+            CDW_CI[i] =  np.nanpercentile( np.nansum( (MCmeans[:, 3, :] * zbin), axis=0 ), [0.025, 0.975])
+            CDW_yerr[i] = [abs(CDWthickness[i] - CDW_CI[i][0]), abs(CDWthickness[i] - CDW_CI[i][1])]
+                        
+            mCDW_CI[i] =  np.nanpercentile( np.nansum( (MCmeans[:, 4, :] * zbin), axis=0 ), [0.025, 0.975])
+            mCDW_yerr[i] = [abs(mCDWthickness[i] - mCDW_CI[i][0]), abs(mCDWthickness[i] - mCDW_CI[i][1]) ]
+
+        else:
+            totalWaterColumnSampled[i] = np.nan
+            DSWthickness[i] = np.nan
+            lsswthickness[i] = np.nan
+            ISWthickness[i] = np.nan
+            CDWthickness[i] = np.nan
+            mCDWthickness[i] = np.nan
+            
+    DSWthickness = ma.masked_array(DSWthickness, mask = (DSWthickness == 0) )
+    lsswthickness = ma.masked_array(lsswthickness, mask = (lsswthickness == 0) )
+    ISWthickness = ma.masked_array(ISWthickness, mask = (ISWthickness == 0) )
+    mCDWthickness = ma.masked_array(mCDWthickness, mask = (mCDWthickness == 0) )    
+    CDWthickness = ma.masked_array(CDWthickness, mask = (CDWthickness == 0) )
+        
+    timeaxis = np.arange(1, 13, 1)
+    timeaxis_ticklabel = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D']
+    axwmb.set_xlim(0, 13)
+    axdod.set_xlim(0, 13)
+    axdod.set_xticks(timeaxis)
+    axdod.xaxis.set_tick_params(width=0.1)
+        
+    if ymax:
+        axwmb.set_ylim(ymin, ymax)
+    axdod.set_ylim(0, ymax_dod)
+    axwmb.set_xticks(timeaxis)
+    axwmb.set_xticklabels(timeaxis_ticklabel)
+    if yticks:
+        axwmb.set_yticks(yticks)
+    if yticks_dod:
+        axdod.set_yticks(yticks_dod)
+
+    axwmb.errorbar(timeaxis-2*wd, DSWthickness, yerr=[DSW_yerr.T[0], DSW_yerr.T[1]], label="DSW", zorder=3, color='b', markersize=markersize, capsize=3, fmt="o")
+    
+    axwmb.errorbar(timeaxis-wd, lsswthickness, yerr=[lssw_yerr.T[0], lssw_yerr.T[1]], label="LSSW", zorder=3, color='aqua', markersize=markersize, capsize=3, fmt="v")
+    
+    axwmb.errorbar(timeaxis, ISWthickness, yerr=[ISW_yerr.T[0], ISW_yerr.T[1]], label="ISW", zorder=3, color='slategray', markersize=markersize, capsize=3, fmt="^")
+    
+    axwmb.errorbar(timeaxis+wd, CDWthickness, yerr=[CDW_yerr.T[0], CDW_yerr.T[1]], label="CDW", zorder=3, color='r', markersize=markersize, capsize=3, fmt="X")
+    
+        
+    axwmb.errorbar(timeaxis+2*wd, mCDWthickness, yerr=[mCDW_yerr.T[0], mCDW_yerr.T[1]], label="mCDW", zorder=3, color='darkorange', markersize=markersize, capsize=3, fmt="_")
+    
+    axdod.scatter(timeaxis, np.abs(totalWaterColumnSampled), color='k', s=3, marker='o', zorder=3)
+    
+    axwmb.grid(zorder=0, linestyle='dotted')
+    axdod.grid(linestyle='dotted', zorder=0)
+    axdod.spines["top"].set_visible(False)
+    axdod.spines["right"].set_linewidth(0.5)
+    axdod.spines["left"].set_linewidth(0.5)
+            
+    if showlegend:
+        axwmb.legend()
+    if retValue:
+        return np.array(DSWthickness), DSW_CI, np.array(lsswthickness), lssw_CI, np.array(ISWthickness), ISW_CI, np.array(mCDWthickness), mCDW_CI, np.array(CDWthickness), CDW_CI, totalWaterColumnSampled
+
+
+    
 def plot_waterMassThicknessVsMonths(axwmb,axdod, df, ymin=0, ymax=None, yticks=[], zbin=10, wd = 0.1, fontsize=8, showlegend=False, retValue=False, ymax_dod=None, yticks_dod=[]):
     matplotlib.rcParams.update({'font.size': fontsize})        # setting fontsize for plot elements    
 
@@ -262,8 +421,7 @@ def waterMassThickness_bootstrapper(axwmb,axdod, df, ymin=0, ymax=None, yticks=[
     axdod.set_xlim(0, 13)
     axdod.set_xticks(timeaxis)
     axdod.xaxis.set_tick_params(width=0.1)
-    #axdod.yaxis.set_tick_params(width=5)
-    
+        
     if ymax:
         axwmb.set_ylim(ymin, ymax)
     axdod.set_ylim(0, ymax_dod)
@@ -282,7 +440,6 @@ def waterMassThickness_bootstrapper(axwmb,axdod, df, ymin=0, ymax=None, yticks=[
     
     axwmb.errorbar(timeaxis+wd, CDWthickness, yerr=[CDW_yerr.T[0], CDW_yerr.T[1]], label="CDW", zorder=3, color='r', markersize=markersize, capsize=3, fmt="X")
     
-        
     axwmb.errorbar(timeaxis+2*wd, mCDWthickness, yerr=[mCDW_yerr.T[0], mCDW_yerr.T[1]], label="mCDW", zorder=3, color='darkorange', markersize=markersize, capsize=3, fmt="_")
     
     axdod.scatter(timeaxis, np.abs(totalWaterColumnSampled), color='k', s=3, marker='o', zorder=3)
@@ -300,8 +457,8 @@ def waterMassThickness_bootstrapper(axwmb,axdod, df, ymin=0, ymax=None, yticks=[
 
 
 
-def plot_array_waterMassThickness(df, regions, titles, ymin=0, ymax=None, bar_width=0.15, wd=7.48, ht=7., mrows=13, retValue=True, yticks_dod=[], ymax_dod=None,
-                                  ncols=3, height_ratios=[], width_ratios=[], save=False, savename="savedfig.png", show=True, fontsize=8, zbin=20.0, yticks=[], reps=1000):
+def plot_array_waterMassThickness(df, regions, titles, ymin=0, ymax=None, bar_width=0.15, wd=7.48, ht=7., mrows=13, retValue=True, yticks_dod=[], ymax_dod=None, plotter = 1,
+                                  ncols=3, height_ratios=[], width_ratios=[], save=False, savename="savedfig.png", show=True, fontsize=8, zbin=20.0, yticks=[], reps=1000, hspace=0, wspace=0):
     
     matplotlib.rcParams.update({'font.size': fontsize})        # setting fontsize for plot elements        
     plt.close(1)
@@ -312,9 +469,9 @@ def plot_array_waterMassThickness(df, regions, titles, ymin=0, ymax=None, bar_wi
         width_ratios = [1]*ncols
         
     gs = gridspec.GridSpec(mrows, ncols, height_ratios=height_ratios, width_ratios=width_ratios)
-    gs.update(hspace=0.)
-    gs.update(wspace=0.)
-
+    gs.update(hspace= hspace)
+    gs.update(wspace= wspace)
+    
     count = 0
     DSWthickness  = np.zeros((len(titles), 12))
     DSW_CI = np.zeros((len(titles), 12, 2) )
@@ -335,9 +492,20 @@ def plot_array_waterMassThickness(df, regions, titles, ymin=0, ymax=None, bar_wi
             axdod = plt.subplot(gs[i-1, j]) # depth of dive axis
 
             if retValue:
-                DSWthickness[count], DSW_CI[count], lsswthickness[count], lssw_CI[count], ISWthickness[count], ISW_CI[count], mCDWthickness[count], mCDW_CI[count], CDWthickness[count], CDW_CI[count], zlowest[count] = waterMassThickness_bootstrapper(axwmb,axdod, df.loc[regions[count]], wd=bar_width, yticks=yticks, ymax=ymax, retValue=retValue, yticks_dod=yticks_dod, ymax_dod=ymax_dod, zbin=zbin, reps=reps)
+                if(plotter == 1):
+                    DSWthickness[count], DSW_CI[count], lsswthickness[count], lssw_CI[count], ISWthickness[count], ISW_CI[count], mCDWthickness[count], mCDW_CI[count], CDWthickness[count], CDW_CI[count], zlowest[count] = waterMassThickness_bootstrapper(axwmb,axdod, df.loc[regions[count]], wd=bar_width, yticks=yticks, ymax=ymax, retValue=retValue, yticks_dod=yticks_dod, ymax_dod=ymax_dod, zbin=zbin, reps=reps)
+                elif(plotter == 2):
+                    DSWthickness[count], DSW_CI[count], lsswthickness[count], lssw_CI[count], ISWthickness[count], ISW_CI[count], mCDWthickness[count], mCDW_CI[count], CDWthickness[count], CDW_CI[count], zlowest[count] = waterMassThickness_bootstrapper_profileWise(axwmb,axdod, df.loc[regions[count]], wd=bar_width, yticks=yticks, ymax=ymax, retValue=retValue, yticks_dod=yticks_dod, ymax_dod=ymax_dod, zbin=zbin, reps=reps)
+                else:
+                    raise ValueError('plotter can only have value 1 or 2')
             else:
-                waterMassThickness_bootstrapper(axwmb,axdod, df.loc[regions[count]], wd=bar_width, yticks=yticks, ymax=ymax, retValue=retValue, yticks_dod=yticks_dod, ymax_dod=ymax_dod)
+                if(plotter == 1):
+                    waterMassThickness_bootstrapper(axwmb,axdod, df.loc[regions[count]], wd=bar_width, yticks=yticks, ymax=ymax, retValue=retValue, yticks_dod=yticks_dod, ymax_dod=ymax_dod, zbin=zbin, reps=reps)
+                elif(plotter == 2):
+                    waterMassThickness_bootstrapper_profileWise(axwmb,axdod, df.loc[regions[count]], wd=bar_width, yticks=yticks, ymax=ymax, retValue=retValue, yticks_dod=yticks_dod, ymax_dod=ymax_dod, zbin=zbin, reps=reps)
+                else:
+                    raise ValueError('plotter can only have value 1 or 2')
+
                 
             
             axdod.set_ylabel("m")
@@ -351,14 +519,14 @@ def plot_array_waterMassThickness(df, regions, titles, ymin=0, ymax=None, bar_wi
                 axdod.set_ylabel("")
                 axdod.yaxis.set_tick_params(width=0.1)
                 axdod.spines["left"].set_linewidth(0.5)
-
-            if((i == 1) or (i == 7) ):
+                
+            if( ((i == 1) or (i == 7)) ):
                 axwmb.set_xticklabels([])
                 axwmb.set_xlabel("")
             axdod.set_xticklabels([])
             axdod.set_xlabel("")
 
-            if titles[count] == "(l) BSA2":
+            if( (titles[count] == "(l) BSA2") or (titles[count] == "(e) PHCA2") ):
                 axwmb.set_ylim(0,1500)
                 yticksBSA2 = [250, 750, 1250]
                 axwmb.set_yticks(yticksBSA2)
@@ -367,6 +535,8 @@ def plot_array_waterMassThickness(df, regions, titles, ymin=0, ymax=None, bar_wi
                 axwmb.annotate(s=titles[count], xy=(0.5,1050))
             else:
                 axwmb.annotate(s=titles[count], xy=(0.5,700))
+
+                
             count += 1
             if(count == len(regions)):
                 break

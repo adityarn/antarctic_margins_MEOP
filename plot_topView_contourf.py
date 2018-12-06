@@ -97,7 +97,7 @@ def getCellSize(m, nx=300, ny=300):
 
     return dist_x/float(nx), dist_y/float(ny)
     
-def plotBotVarContourf(df,var="PSAL_ADJUSTED", units='Cond.', cmin=33, cmax=35.5,
+def plotBotVarContourf(df,var="PSAL_ADJUSTED", units='PSU', cmin=33, cmax=35.5,
                          save=False, savename="savedFig.png", wd=7, ht=7, cmap='viridis', region='Whole', nmin=0, show=True, cx=10, cy=10, levs=[]):
 
     matplotlib.rcParams.update({'font.size': 8})        # setting fontsize for plot elements            
@@ -237,19 +237,19 @@ def plotSurfVarContourf(df,var="PSAL_ADJUSTED", units='Cond.', cmin=33, cmax=35.
 
 def plotDataDensity(df, units='Data Density',
                     save=False, savename="savedFig.png", wd=7, ht=7,
-                    cx=10, cy=10, show=False, lat0 = -90, lon0=0, regionLonLims = [ -60. ,  -20. ,  0., 29., 37., 60. ,   70. ,   82. ,  87., 101. ,  112. ,
+                    cx=10, cy=10, show=False, lat0 = -90, lon0=0, regionLonLims = [ -60. ,  -20. ,  0., 29., 37., 60. ,   70. , 75,  82. ,  87., 101. ,  112. ,
         135. ,  145. ,  160. ,  180. , -120. , -100.],
                     levels=[0, 10, 20, 30, 40, 50, 60, 100, 200, 500], region='Whole', plotBathy=False, fontsize=8,
                     bathyLevels=[0, -100, -200, -300, -400, -500, -600, -700, -800, -900, -1000, -1250, -1500, -1750, -2000, -2500, -3000, -3500, -4000, -4500, -5000, -6000, -7000]):
     matplotlib.rcParams.update({'font.size': fontsize})        # setting fontsize for plot elements            
     plt.figure(1, figsize=(wd,ht));
-    gs = gridspec.GridSpec(2, 2, height_ratios=[1, 0.05], width_ratios=[1, 0.03])
-    mapax = plt.subplot(gs[0, 0])
+    gs = gridspec.GridSpec(2, 2, height_ratios=[1, 0.15], width_ratios=[1, 0.03])
+    mapax = plt.subplot(gs[0:2, 0])
     m  = createMapProjections(lat0, lon0, region=region, fontsize=fontsize, regionLonLims= regionLonLims)
 
         
     datacolorbar = plt.subplot(gs[0, 1])
-    bathycolorbar = plt.subplot(gs[1, 0])
+    bathycolorbar = plt.subplot(gs[1, 1])
     
     matplotlib.rcParams.update({'font.size': fontsize})    
     
@@ -286,14 +286,14 @@ def plotDataDensity(df, units='Data Density',
         lonindices = np.arange(0, lonlen+1, 30)
         lonindices[-1] = lonindices[-1] - 1
         bathyS = bathy.isel(lon=lonindices, lat=np.arange(0, 3600, 5))
-        clevs = np.array([-100, -500, -1000, -1500, -2000, -3000])[::-1]
+        clevs = np.array([-1000, -2000, -3000])[::-1]
         
         longrid, latgrid = np.meshgrid(bathyS.lon.values, bathyS.lat.values)
-        cs = m.contour(longrid, latgrid, bathyS.elevation.where(bathyS.elevation <= 0).values,  latlon=True, levels=clevs, linewidths=0.2, extend='min', ax=mapax) #, , cmap='rainbow'   , levels=clevs,
+        cs = m.contour(longrid, latgrid, bathyS.elevation.where(bathyS.elevation <= 0).values,  latlon=True, levels=clevs, linewidths=0.35, extend='neither', ax=mapax) #, , cmap='rainbow'   , levels=clevs,
         ## plt.figure(2)
         ## cf = plt.contourf(longrid, latgrid,bathyS.elevation.where(bathyS.elevation <= 0).values, levels=clevs, extend='min') #, , cmap='rainbow'   , levels=clevs,
         ## plt.figure(1)
-        cbar1 = Colorbar(ax = bathycolorbar, mappable = cs, orientation = 'horizontal')
+        cbar1 = Colorbar(ax = bathycolorbar, mappable = cs, orientation = 'vertical')
         cbar1.ax.get_children()[0].set_linewidths(5)
         cbar1.set_label('Depth (m)')
         
