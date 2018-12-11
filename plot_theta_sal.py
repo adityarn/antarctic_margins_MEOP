@@ -3,6 +3,10 @@ import matplotlib.pyplot as plt
 from matplotlib.pyplot import cm
 import gsw
 import matplotlib
+import sys
+
+sys.path.insert(0, "/usr/local/MATLAB/R2016a/extern/engines/python/build/lib.linux-x86_64-2.7")
+import matlab.engine
 
 def plot_theta_s(ax, df, mask, title="title",salmin=30, salmax=36, thetamin=-3, thetamax=6, alpha=1.0, s=15, templine=False, sig_lines=[], fontsize=8,
                  sig_line_annot= [], colorbar_show=False, scat_vmin=0, scat_vmax=650, theta_ticks=[], sal_ticks=[], show_legend=False):
@@ -32,17 +36,27 @@ def plot_theta_s(ax, df, mask, title="title",salmin=30, salmax=36, thetamin=-3, 
     ylim = ax.get_ylim()
     xlim = ax.get_xlim()
     
-    
-    SA = gsw.SA_from_SP(np.linspace(xlim[0], xlim[-1], 300), 0, df['LONGITUDE'].mean(), df['LATITUDE'].mean())
+    SP = np.linspace(xlim[0], xlim[-1], 300)
+    P = np.zeros(len(SP))
+    SA = gsw.SA_from_SP(SP, 0, df['LONGITUDE'].mean(), df['LATITUDE'].mean())
     CT = np.linspace(ylim[0], ylim[-1], 300)# - abs(ylim[-1])*0.1, 300)
+    CT_freezing = gsw.CT_freezing(SA, P, 0)
     
     SS,TT = np.meshgrid(SA, CT)
-    sigma00 = gsw.density.sigma0(SS, TT)
+    sigma00 = gsw.sigma0(SS, TT)
+    
+    SPmesh, TT = np.meshgrid(SP, CT)
+    eng = matlab.engine.start_matlab()
+    eng.addpath('/media/work/MyPrograms/EOS80/')
+    eng.addpath('/media/work/MyPrograms/EOS80/library/')
+    SPmesh_mat = matlab.double(SPmesh.tolist())
+    TT_mat = matlab.double(TT.tolist())
+    gamman_mesh = eng.eos80_legacy_gamma_n(SPmesh_mat, TT_mat, 0.0, np.asscalar(df['LONGITUDE'].mean()), np.asscalar(df['LATITUDE'].mean()) );
 
     if not sig_lines:
         sig_lines = list(np.linspace(27,27.9, 10))
         
-    CS = ax.contour(SS, TT, sigma00, sig_lines, colors='k')
+    CS = ax.contour(SPmesh, TT, gamman_mesh, sig_lines, colors='k')
     #plt.clabel(CS, colors='firebrick', fontsize=12, fmt="%3.2f")
     
     ## mask = []
@@ -76,8 +90,9 @@ def plot_theta_s(ax, df, mask, title="title",salmin=30, salmax=36, thetamin=-3, 
     #ax.plot(SS[mask_sig_upper], TT[mask_sig_upper], color='k')
         
     if(templine == True):
-        ax.axhline(y=-1.9, linestyle="--", linewidth=1)
-        ax.annotate("-1.9", xy=(xlim[0] + (xlim[-1] - xlim[0])*0.01, -1.88), fontsize=fontsize)
+        ax.plot(SP, CT_freezing, linestyle="--", linewidth=1, color="b")
+        #ax.axhline(y=-1.9, linestyle="--", linewidth=1)
+        #ax.annotate("-1.9", xy=(xlim[0] + (xlim[-1] - xlim[0])*0.01, -1.88), fontsize=fontsize)
     ax.set_ylabel("CT ($^o$C)")
     ax.set_xlabel("Salinity (PSU)")
     ax.grid()
