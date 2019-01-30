@@ -129,3 +129,12 @@ def freshwater_flux_compute(evap, precip, precip_error, lonmin, lonmax, latmin, 
                 plt.savefig(savename)
             plt.show()
         return ( np.nansum(E_mon_mean) - np.nansum(P_mon_mean) ) , max(E_mon_mean_err+P_mon_mean_err)
+
+
+
+def mean_over_lons(dfg, lonmin, lonmax):
+    return dfg.groupby_bins('lon', [lonmin, lonmax]).sum()
+
+def compute_seaIceFlux_regional(latmin, latmax, lonmin, lonmax, timeStart=np.datetime64("2004-08-30"), timeEnd=np.datetime64("2008-08-30")):
+    
+    return seaIceFlux.net_ioflux.sel(time=slice(timeStart , timeEnd)).mean(axis=0).groupby_bins('lat', [latmin, latmax]).apply(mean_over_lons, lonmin=lonmin, lonmax=lonmax)

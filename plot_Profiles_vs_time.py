@@ -25,9 +25,11 @@ def plot_sal_contours_with_time(df, years=[], bins=5, wd=12, ht=5, varmin=33, va
                                     colorunit='Salinity (PSU)', save=False, savename="Untitled.png", 
                                     zbin=20, zmin=0, nmin=3, depth_max=0.0, levs=[], type=1, integrationDepth=100, plot=True, precip_dir="/media/data/Datasets/AirSeaFluxes/GPCPprecip",
                                     evap_dir="/media/data/Datasets/AirSeaFluxes/WHOIevap", clim=False, lonmin=np.nan, lonmax=np.nan, fontsize=14, show_legend=False):
-    matplotlib.rcParams.update({'font.size': fontsize})        
+    matplotlib.rcParams.update({'font.size': fontsize})
+
     if not years:
         years = np.sort(df.loc[:, 'JULD'].dt.year.unique())
+        
     if(clim == False):
         iter_range = len(years)
         evap_year_start, evap_year_end = years[0], years[-1]
@@ -83,7 +85,7 @@ def plot_sal_contours_with_time(df, years=[], bins=5, wd=12, ht=5, varmin=33, va
             print(lonmin, lonmax, latmin, latmax)
             evap = evap_total[i]
             if(clim == False):
-                netEP[i], netEP_error[i] = computeEPnet.freshwater_flux_compute(evap, precip, precip_error, lonmin, lonmax, latmin, latmax, plot=False, year=years[i])
+                netEP[i], netEP_error[i] = computeEPnet.freshwater_flux_compute(PEclim, lonmin, lonmax, latmin, latmax, plot=False, year=years[i])
                 seaice_fh[i], seaice_std[i] = find_sim_freshwater_h(lonmin, lonmax, latmin, latmax, year=years[i])
             else:
                 netEP[i], netEP_error[i] = computeEPnet.freshwater_flux_compute(evap_total, precip, precip_error, lonmin, lonmax, latmin, latmax, clim=True, plot=False, year=[evap_year_start, evap_year_end])
@@ -106,11 +108,11 @@ def plot_sal_contours_with_time(df, years=[], bins=5, wd=12, ht=5, varmin=33, va
                     if(np.isnan(var_mean[s:e, b]).all()):
                         continue
                     else:
-                        min_ind = np.nanargmin(var_mean[s : e, b])
-                        max_ind = np.nanargmax(var_mean[s : e, b])
+                        min_ind = np.nanargmin(abssalmean[s : e, b])
+                        max_ind = np.nanargmax(abssalmean[s : e, b])
                                                 
                         h_w = abs(depth_bins[1] - depth_bins[0])
-                        freshwater_h[i][b] = h_w * ( abssalmean[s:e, b][max_ind] / abssalmean[s:e, b][min_ind]  - 1 ) * 1e3
+                        freshwater_h[i][b] = h_w * (abssalmean[s:e, b][max_ind] - abssalmean[s:e, b][min_ind]) * 1e3
                         freshwater_h_error[i][b] = abs(freshwater_h[i][b]) * np.sqrt( (abssalstd[s:e,b][max_ind] / abssalmean[s:e,b][max_ind])**2 +  (abssalstd[s:e,b][min_ind] / abssalmean[s:e,b][min_ind])**2)
                 
             if(type == 1):
@@ -421,3 +423,192 @@ def find_sim_freshwater_h(lonmin, lonmax, latmin, latmax, plot=False, clim=False
         fh_std = mass_diff_std / 1027. * 1e3
     
     return fh, fh_std
+
+
+
+
+
+
+
+################################################################################################################################################################################
+################################################################################################################################################################################
+################################################################################################################################################################################
+
+def conv360_180(lons):
+    lons[lons > 180] = lons[lons > 180] - 360
+    return lons
+
+def mean_over_lons(dfg, lonmin, lonmax):
+    return dfg.groupby_bins('lon', [lonmin, lonmax]).mean()
+
+def mean_over_lons_alongTime(dfg, lonmin, lonmax):
+    return dfg.groupby_bins('lon', [lonmin, lonmax]).mean(axis=1)
+
+
+def compute_seaIceFlux_regional(latmin, latmax, lonmin, lonmax, timeStart=np.datetime64("2004-08-30"), 
+                                timeEnd=np.datetime64("2008-08-30")):
+    
+    return seaIceFlux.net_ioflux.sel(time=slice(timeStart , timeEnd)).mean(axis=0).\
+    groupby_bins('lat', [latmin, latmax]).apply(mean_over_lons, lonmin=lonmin, lonmax=lonmax)
+    
+def compute_seaIceFlux_regional_alongTime(latmin, latmax, lonmin, lonmax, timeStart=np.datetime64("2004-08-30"), 
+                                timeEnd=np.datetime64("2008-08-30")):
+    
+    return seaIceFlux.net_ioflux.sel(time=slice(timeStart , timeEnd)).\
+    groupby_bins('lat', [latmin, latmax]).apply(mean_over_lons_alongTime, lonmin=lonmin, lonmax=lonmax)
+
+
+# provide lonmin, lonmax in 0 to 360 degrees longitudinal system
+# Bathy, and dfmg are in -180 to +180 long system, make necessary conversions for them
+def compute_freshwater_fluxes(df, PEclim, seaIceFlux, bathy, bins=5, wd=12, ht=5, varmin=33, varmax=35, nlevs=10,
+                                    colorunit='Salinity (PSU)', save=False, savename="Untitled.png", 
+                                    zbin=20, zmin=0, nmin=3, depth_max=0.0, levs=[], integrationDepth=100, plot=True, precip_dir="/media/data/Datasets/AirSeaFluxes/GPCPprecip",
+                                    evap_dir="/media/data/Datasets/AirSeaFluxes/WHOIevap", clim=False, lonmin=np.nan, lonmax=np.nan, latmin=np.nan, latmax=np.nan, fontsize=14, show_legend=False):
+    matplotlib.rcParams.update({'font.size': fontsize})
+
+    evap_year_start, evap_year_end = 2004, 2015
+    
+    if(depth_max < 0):
+        zlowest = depth_max
+    else:
+        zlowest = df.loc[:, 'DEPTH'].min()
+    number_bins = np.abs(zlowest) // zbin
+    depth_bins = np.linspace(zlowest, 0, number_bins)
+        
+    timeaxis_ticklabel = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D']
+    timeaxis = np.arange(1, 13, 1)
+    
+    var_binned = np.zeros((len(timeaxis), len(depth_bins)))
+
+    var_mean = np.zeros((len(timeaxis), len(depth_bins)-1))
+    abssalmean = np.zeros((len(timeaxis), len(depth_bins)-1))
+    abssalstd = np.zeros((len(timeaxis), len(depth_bins)-1))
+    rhomean = np.zeros((len(timeaxis), len(depth_bins)-1))
+    var_count = np.zeros((len(timeaxis), len(depth_bins)-1))
+    var_sd = np.zeros((len(timeaxis), len(depth_bins)-1))
+    freshwater_h = np.zeros(len(depth_bins)-1)
+    freshwater_h_error = np.zeros(len(depth_bins)-1)
+    
+    no_of_days = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    count = df.PSAL_ADJUSTED.count()
+
+    PElats = PEclim.sel(latitude=slice(latmax, latmin), longitude=slice(lonmin, lonmax)).latitude.values
+    PElons = PEclim.sel(latitude=slice(latmax, latmin), longitude=slice(lonmin, lonmax)).longitude.values    
+    bathy_region = bathy.sel(lat=PElats, lon= conv360_180(PElons), method='nearest').elevation.values
+    bathy_region_mask = bathy_region < 0
+    
+    if(count > 0):
+        if(np.isnan(lonmin) & np.isnan(lonmax)):
+            lonmin, lonmax = (df.loc[:, 'LONGITUDE'].min()), int(df.loc[:, 'LONGITUDE'].max())
+        if not latmin:
+            latmin, latmax = (df.loc[:, 'LATITUDE'].min()), int(df.loc[:, 'LATITUDE'].max())
+        print(lonmin, lonmax, latmin, latmax)
+
+        evap_total = (PEclim.sel(latitude=slice(latmax, latmin), longitude=slice(lonmin, lonmax)).where(bathy_region_mask).e.mean(dim=['latitude', 'longitude'])[:] * no_of_days[:]).sum()
+        precip_total = (PEclim.sel(latitude=slice(latmax, latmin), longitude=slice(lonmin, lonmax)).where(bathy_region_mask).tp.mean(dim=['latitude', 'longitude'])[:] * no_of_days[:]).sum()
+        seaIceFlux_total = compute_seaIceFlux_regional(latmin= latmin, latmax= latmax, lonmin= lonmin, lonmax= lonmax)
+
+
+        for j in range(12):
+            monthmask = df['JULD'].dt.month == j+1
+            timeSlice_df = df.loc[monthmask]
+            var_mean[j] = timeSlice_df.groupby(pd.cut(timeSlice_df.DEPTH, depth_bins)).PSAL_ADJUSTED.mean().values
+            abssalmean[j] = timeSlice_df.groupby(pd.cut(timeSlice_df.DEPTH, depth_bins)).SA.mean().values
+            abssalstd[j] = timeSlice_df.groupby(pd.cut(timeSlice_df.DEPTH, depth_bins)).SA.std().values
+            rhomean[j] = timeSlice_df.groupby(pd.cut(timeSlice_df.DEPTH, depth_bins)).DENSITY_INSITU.mean().values
+            var_count[j] = timeSlice_df.groupby(pd.cut(timeSlice_df.DEPTH, depth_bins)).PSAL_ADJUSTED.count().values
+            var_sd[j] = timeSlice_df.groupby(pd.cut(timeSlice_df.DEPTH, depth_bins)).PSAL_ADJUSTED.std().values
+
+        for b in range(len(depth_bins)-1):
+
+            if(np.isnan(var_mean[:, b]).all()):
+                continue
+            else:
+                min_ind = np.nanargmin(abssalmean[:, b])
+                max_ind = np.nanargmax(abssalmean[:, b])
+
+                h_w = abs(depth_bins[1] - depth_bins[0])
+                freshwater_h[i][b] = h_w * (abssalmean[:, b][max_ind] - abssalmean[:, b][min_ind]) * 1e3
+                freshwater_h_error[i][b] = abs(freshwater_h[i][b]) * np.sqrt( (abssalstd[:,b][max_ind] / abssalmean[:,b][max_ind])**2 +  (abssalstd[:,b][min_ind] / abssalmean[:,b][min_ind])**2)
+
+    else:
+        var_mean[i*12 : i*12+13] = np.nan
+
+
+
+    #var_mean = ma.masked_array(var_mean, mask= ma.masked_less(var_count, nmin).mask)
+    #var_sd = ma.masked_array(var_sd, mask= ma.masked_less(var_count, nmin).mask)
+    
+    #fig.subplots_adjust(hspace=1.3)
+    if(plot == True):
+        fig, ax = plt.subplots(nrows=1, ncols=1,squeeze=True, figsize=(wd, ht))
+
+        if(clim == False):
+            year_ax = ax.twiny()
+            year_ax.set_frame_on(True)
+            year_ax.patch.set_visible(False)
+            year_ax.xaxis.set_ticks_position('bottom')
+            year_ax.xaxis.set_label_position('bottom')
+            year_ax.spines['bottom'].set_position(('outward', 30))
+            year_ax.set_xticks(np.arange(1,len(timeaxis)+1, 12))
+            year_ax.set_xticklabels(np.array(years, dtype=str), rotation='0')
+            year_ax.set_xlim(1, timeaxis[-1])
+            
+
+        zbin_midpoint = depth_bins[:-1] + np.diff(depth_bins)*0.5
+        #zbin_midpoint = np.insert(zbin_midpoint, len(zbin_midpoint), 0)
+        timeaxis_midpoint = timeaxis[:-1] + np.diff(timeaxis)*0.5
+        X, Y = np.meshgrid(timeaxis, zbin_midpoint) #depth_bins[1:])
+        if not levs:
+            levs = np.linspace(varmin, varmax, nlevs)
+        CF = ax.contourf(X.T[:, :], Y.T[:, :], var_mean[:, :], levs, zorder=0, extend='both')
+        ax.set_xticks(timeaxis)
+        ax.set_xticklabels(timeaxis_ticklabel)
+        ax.set_ylabel('Depth (m)')
+
+        if(depth_max < 0):
+            ax.set_ylim(depth_max, 0)
+
+        #cbaxes = fig.add_axes([1.005, 0.075, 0.02, 0.885]) 
+        #cbar1 = fig.colorbar(CF, cax=cbaxes)
+        if(clim == False):
+            cbar1 = fig.colorbar(CF, ax=[ax, year_ax], pad=0.015)
+        else:
+            cbar1 = fig.colorbar(CF, ax=ax, pad=0.015)
+        #cbar1.set_label(colorunit, labelpad=4, y=0.5)
+        cbar1.set_label(colorunit)
+
+        #conf_int = 1.96*var_sd/np.sqrt(var_count)
+        conf_int = var_sd
+        conf_int[np.where(var_count < nmin)] = 1e5    
+        conf_int[np.where(var_count == 0)] = np.nan    
+        conf_int = ma.masked_invalid(conf_int)
+
+        CF2 = ax.contourf(X.T[:, :], Y.T[:, :], conf_int[:, :], levels=[0, 0.1, 0.2, 0.3, 0.5, 1.0, np.inf], colors='none', hatches=['', '/', '\\', '.', '+', 'o'])
+        #fontP = FontProperties()
+        #fontP.set_size('small')
+        #legend([plot1], "title", prop=fontP)
+        artists, labels = CF2.legend_elements(variable_name="\\sigma")
+        labels[-1] = 'count $< $'+str(nmin)
+        
+        if(show_legend == True):
+            if(clim == False):
+                lgd = plt.legend(artists, labels, handleheight=2, loc='upper left', bbox_to_anchor=(0.3, -0.19), fancybox=True, ncol=3)
+            if(clim == True):
+                lgd = plt.legend(artists, labels, handleheight=2, loc='upper left', bbox_to_anchor=(0.3, -0.1), fancybox=True, ncol=3)
+            
+        if(zmin != 0):
+            ax.set_ylim(zmin, 0)
+        else:
+            ax.set_ylim(zlowest, 0)
+
+        if(save== True):
+            if(show_legend == True):
+                plt.savefig(savename, dpi=150, bbox_extra_artists=(lgd,), bbox_inches='tight')
+            else:
+                plt.savefig(savename, dpi=150)
+        plt.show()
+        
+    return [ [freshwater_h, freshwater_h_error] , \
+             [netEP, netEP_error] , \
+             [seaice_fh, seaice_std] ] , depth_bins
