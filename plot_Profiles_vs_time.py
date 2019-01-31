@@ -112,6 +112,7 @@ def plot_sal_contours_with_time(df, years=[], bins=5, wd=12, ht=5, varmin=33, va
                         max_ind = np.nanargmax(abssalmean[s : e, b])
                                                 
                         h_w = abs(depth_bins[1] - depth_bins[0])
+
                         freshwater_h[i][b] = h_w * (abssalmean[s:e, b][max_ind] - abssalmean[s:e, b][min_ind]) * 1e3
                         freshwater_h_error[i][b] = abs(freshwater_h[i][b]) * np.sqrt( (abssalstd[s:e,b][max_ind] / abssalmean[s:e,b][max_ind])**2 +  (abssalstd[s:e,b][min_ind] / abssalmean[s:e,b][min_ind])**2)
                 
@@ -445,7 +446,7 @@ def mean_over_lons_alongTime(dfg, lonmin, lonmax):
     return dfg.groupby_bins('lon', [lonmin, lonmax]).mean(axis=1)
 
 
-def compute_seaIceFlux_regional(latmin, latmax, lonmin, lonmax, timeStart=np.datetime64("2004-08-30"), 
+def compute_seaIceFlux_regional(seaIceFlux, latmin, latmax, lonmin, lonmax, timeStart=np.datetime64("2004-08-30"), 
                                 timeEnd=np.datetime64("2008-08-30")):
     
     return seaIceFlux.net_ioflux.sel(time=slice(timeStart , timeEnd)).mean(axis=0).\
@@ -488,7 +489,7 @@ def compute_freshwater_fluxes(df, PEclim, seaIceFlux, bathy, bins=5, wd=12, ht=5
     var_sd = np.zeros((len(timeaxis), len(depth_bins)-1))
     freshwater_h = np.zeros(len(depth_bins)-1)
     freshwater_h_error = np.zeros(len(depth_bins)-1)
-    
+
     no_of_days = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
     count = df.PSAL_ADJUSTED.count()
 
@@ -506,8 +507,8 @@ def compute_freshwater_fluxes(df, PEclim, seaIceFlux, bathy, bins=5, wd=12, ht=5
 
         evap_total = (PEclim.sel(latitude=slice(latmax, latmin), longitude=slice(lonmin, lonmax)).where(bathy_region_mask).e.mean(dim=['latitude', 'longitude'])[:] * no_of_days[:]).sum()
         precip_total = (PEclim.sel(latitude=slice(latmax, latmin), longitude=slice(lonmin, lonmax)).where(bathy_region_mask).tp.mean(dim=['latitude', 'longitude'])[:] * no_of_days[:]).sum()
-        seaIceFlux_total = compute_seaIceFlux_regional(latmin= latmin, latmax= latmax, lonmin= lonmin, lonmax= lonmax)
-
+        seaIceFlux_total = compute_seaIceFlux_regional(seaIceFlux, latmin= latmin, latmax= latmax, lonmin= lonmin, lonmax= lonmax)
+        runoff_2 = -seaIceFlux_total - evap_total - precip_total
 
         for j in range(12):
             monthmask = df['JULD'].dt.month == j+1
@@ -528,8 +529,9 @@ def compute_freshwater_fluxes(df, PEclim, seaIceFlux, bathy, bins=5, wd=12, ht=5
                 max_ind = np.nanargmax(abssalmean[:, b])
 
                 h_w = abs(depth_bins[1] - depth_bins[0])
-                freshwater_h[i][b] = h_w * (abssalmean[:, b][max_ind] - abssalmean[:, b][min_ind]) * 1e3
-                freshwater_h_error[i][b] = abs(freshwater_h[i][b]) * np.sqrt( (abssalstd[:,b][max_ind] / abssalmean[:,b][max_ind])**2 +  (abssalstd[:,b][min_ind] / abssalmean[:,b][min_ind])**2)
+                freshwater_h[b] = h_w * (abssalmean[max_ind, b] - abssalmean[min_ind, b])
+
+                freshwater_h_error[b] = abs(freshwater_h[b]) * np.sqrt( (abssalstd[:,b][max_ind] / abssalmean[:,b][max_ind])**2 +  (abssalstd[:,b][min_ind] / abssalmean[:,b][min_ind])**2)
 
     else:
         var_mean[i*12 : i*12+13] = np.nan
@@ -608,7 +610,10 @@ def compute_freshwater_fluxes(df, PEclim, seaIceFlux, bathy, bins=5, wd=12, ht=5
             else:
                 plt.savefig(savename, dpi=150)
         plt.show()
-        
-    return [ [freshwater_h, freshwater_h_error] , \
-             [netEP, netEP_error] , \
-             [seaice_fh, seaice_std] ] , depth_bins
+
+    gross_fh = np.nansum(freshwater_h * 1e-3)
+    runoff_1 = gross_fh -seaIceFlux_total - evap_total - precip_total
+    
+    print(" CTD freshwater estimate = ",np.nansum(gross_fh), "\n runoff_2, E + Fice - P = ", np.asscalar(runoff_2.values), "\n runoff_1,  F + E + Fice - P = ", np.asscalar(runoff_1.values) )
+    return [[freshwater_h, freshwater_h_error] , \
+             evap_total , precip_total, seaIceFlux_total , depth_bins, runoff_1, runoff_2]
