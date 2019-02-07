@@ -123,8 +123,8 @@ def plot_scatter_profilesSet(df, profileSet=[], var='CTEMP', wd=7.48, ht=5, varm
         plt.show()
 
 
-def plotProfDist_in_BoundingBox(df, boundingBox=[], var='CTEMP', wd=7.48, ht=5, varmin=-2, varmax=5, levs=[], show=True,
-                                            colorunit='$\\theta^{\circ}$C ', save=False, savename="Untitled.png", fontsize=8,
+def plotProfDist_in_BoundingBox(df, boundingBox=[], var='CTEMP', wd=7.48, ht=5, varmin=-2, varmax=5, levs=[], show=True, plotEcho = False, xlat=False,
+                                            colorunit='$\\theta^{\circ}$C ', save=False, savename="Untitled.png", fontsize=8, levels=[],
                                             zmin=0.0, ticks=[], cline=[], legend_show=True, plotTimeHist=False):
     
     matplotlib.rcParams.update({'font.size': fontsize})
@@ -134,40 +134,50 @@ def plotProfDist_in_BoundingBox(df, boundingBox=[], var='CTEMP', wd=7.48, ht=5, 
     ax = plt.subplot(gs[0, 0])
 
     if not boundingBox:
-        raise ValueError('provide arg boundingBox in fmt [[x1,y1], [x2, y2], [x3, y3], [x4, y4]] \n With x1,y1 being lower left corner of bounding box, and going counter-clockwise from that point.')
+        raise ValueError('provide arg boundingBox in fmt [[llcornerx, llcornery], [urcrnrx, urcrnry]] \n With x1,y1 being lower left corner of bounding box, and going counter-clockwise from that point.')
     try:
         leftlonlim = boundingBox[0][0]
         rightlonlim = boundingBox[1][0]
         lowerlatlim = boundingBox[0][1]
-        upperlatlim = boundingBox[2][1]
+        upperlatlim = boundingBox[1][1]
     except:
         raise ValueError('provide arg boundingBox in fmt [[x1,y1], [x2, y2], [x3, y3], [x4, y4]] \n With x1,y1 being lower left corner of bounding box, and going counter-clockwise from that point.')
     
     selectProfiles = (df.LATITUDE >= lowerlatlim) & (df.LATITUDE <= upperlatlim) & (df.LONGITUDE >= leftlonlim) & (df.LONGITUDE <= rightlonlim) & (~df.CTEMP.isnull())
 
-    dist = df.loc[selectProfiles, 'DIST_GLINE']
+    if xlat:
+        dist = df.loc[selectProfiles, 'LATITUDE']
+    else:
+        dist = df.loc[selectProfiles, 'DIST_GLINE']
     depth = df.loc[selectProfiles, 'DEPTH']
     gamman = df.loc[selectProfiles, 'gamman']
-    
-    ndist = int(df.loc[selectProfiles, 'DIST_GLINE'].max() / 10.)
-    dist_grid = np.linspace(df.loc[selectProfiles, 'DIST_GLINE'].min(), df.loc[selectProfiles, 'DIST_GLINE'].max(), ndist)
+
+    if xlat:
+        ndist = int( (np.max(dist) - np.min(dist) )/ 0.01)
+    else:
+        ndist = int(df.loc[selectProfiles, 'DIST_GLINE'].max() / 10.)
+
+    dist_grid = np.linspace(np.min(dist), np.max(dist), ndist)
     ndepth = int(np.abs(df.loc[selectProfiles, 'DEPTH'].min()) / 10.)
     depth_grid = np.linspace(df.loc[selectProfiles, 'DEPTH'].min(), 0, ndepth)
-    
+
     gamman_interpolated = mlab.griddata(dist, depth, gamman, dist_grid, depth_grid, interp='linear')
-
-    cs = ax.scatter(df.loc[selectProfiles, 'DIST_GLINE'], df.loc[selectProfiles, 'DEPTH'], c=df.loc[selectProfiles, 'CTEMP'])
-    cs_gamman = ax.contour(dist_grid, depth_grid, gamman_interpolated, colors='0.5')
-
+    cs = ax.scatter(dist, df.loc[selectProfiles, 'DEPTH'], c=df.loc[selectProfiles, 'CTEMP'])
+    
+    if levels:
+        cs_gamman = ax.contour(dist_grid, depth_grid, gamman_interpolated, levels, colors='0.5')
+    else:
+        cs_gamman = ax.contour(dist_grid, depth_grid, gamman_interpolated, colors='0.5')
+        
     distSortedIndices = np.argsort(df.loc[selectProfiles, 'DIST_GLINE'])
 
-    depthMin = df.loc[selectProfiles].groupby(pd.cut(df.loc[selectProfiles].DIST_GLINE, dist_grid))[["DEPTH"]].min(axis=1).values
-    echodepthMin = df.loc[selectProfiles].groupby(pd.cut(df.loc[selectProfiles].DIST_GLINE, dist_grid))[["ECHODEPTH"]].min(axis=1).values
-
-    min_of_depth_echodepth = np.array(list(zip(depthMin, echodepthMin))).min(axis=1)
-    ax.plot(dist_grid[:-1], min_of_depth_echodepth, linewidth=4, color='k')
+    if plotEcho:    
+        depthMin = df.loc[selectProfiles].groupby(pd.cut(df.loc[selectProfiles].DIST_GLINE, dist_grid))[["DEPTH"]].min(axis=1).values
+        echodepthMin = df.loc[selectProfiles].groupby(pd.cut(df.loc[selectProfiles].DIST_GLINE, dist_grid))[["ECHODEPTH"]].min(axis=1).values
+        min_of_depth_echodepth = np.array(list(zip(depthMin, echodepthMin))).min(axis=1)
+        ax.plot(dist_grid[:-1], min_of_depth_echodepth, linewidth=4, color='k')
     
-    ax.set_xlim(df.loc[selectProfiles, 'DIST_GLINE'].min()-1, df.loc[selectProfiles, 'DIST_GLINE'].max()+1)
+    #ax.set_xlim(df.loc[selectProfiles, 'DIST_GLINE'].min()-1, df.loc[selectProfiles, 'DIST_GLINE'].max()+1)
 
     if not cline:
         cline = np.arange(27.8, 28.5, 0.1)
