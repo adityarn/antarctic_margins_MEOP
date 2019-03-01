@@ -44,6 +44,8 @@ def createMapProjections(lat0, lon0, region='Whole', fontsize=8, annotate=True, 
         m  = Basemap(projection='ortho', lat_0=lat0, lon_0=lon0, resolution='h', llcrnrx=-width*0.15, llcrnry=0.05*height, urcrnrx=0.*width, urcrnry=0.18*height)
     elif(region == 'Ross'):
         m  = Basemap(projection='ortho', lat_0=lat0, lon_0=180, resolution='h', llcrnrx=-width*0.075, llcrnry=height*0.08, urcrnrx=width*0.03, urcrnry=height*0.18)
+    elif(region == 'CDP'):
+        m = Basemap(projection='ortho', lat_0=lat0, lon_0=65, resolution='h', llcrnrx=-width*0.05, llcrnry=height*0.175, urcrnrx=width*0.05, urcrnry=height*0.23)
     elif(region == 'Prydz'):
         m = Basemap(projection='ortho', lat_0=lat0, lon_0=75, resolution='h', llcrnrx=-width*0.1, llcrnry=height*0.15, urcrnrx=width*0.07, urcrnry=height*0.25)
     elif(region == 'Knox'):
@@ -79,6 +81,56 @@ def createMapProjections(lat0, lon0, region='Whole', fontsize=8, annotate=True, 
             mxy = m(xy[i][0], xy[i][1])
             plt.annotate(str(xytext[i])+"$^o$S", xy=(mxy[0], mxy[1]), rotation=-45, fontsize=fontsize)
     return m
+
+
+def createMapProjections_CRS(lat0, lon0, region='Whole', fontsize=8, annotate=True, ax=None, linewidth=0.2, draw_grounding_line=True, regionLonLims=None):
+    matplotlib.rcParams.update({'font.size': fontsize})
+
+    if(region =='Whole'):
+        m = ccrs.Orthographic(central_longitude=lon0, central_latitude=lat0)
+    elif(region == 'Weddell'):
+        m  = Basemap(projection='ortho', lat_0=lat0, lon_0=lon0, resolution='h', llcrnrx=-width*0.15, llcrnry=0.05*height, urcrnrx=0.*width, urcrnry=0.18*height)
+    elif(region == 'Ross'):
+        m  = Basemap(projection='ortho', lat_0=lat0, lon_0=180, resolution='h', llcrnrx=-width*0.075, llcrnry=height*0.08, urcrnrx=width*0.03, urcrnry=height*0.18)
+    elif(region == 'CDP'):
+        m = ccrs.PlateCarree()
+    elif(region == 'Prydz'):
+        m = Basemap(projection='ortho', lat_0=lat0, lon_0=75, resolution='h', llcrnrx=-width*0.1, llcrnry=height*0.15, urcrnrx=width*0.07, urcrnry=height*0.25)
+    elif(region == 'Knox'):
+        m = Basemap(projection='ortho', lat_0=lat0, lon_0=106.5, resolution='h', llcrnrx=-width*0.07, llcrnry=height*0.17, urcrnrx=width*0.07, urcrnry=height*0.25)
+    elif(region == 'Adelie'):
+        m = Basemap(projection='ortho', lat_0=lat0, lon_0=140, resolution='h', llcrnrx=-width*0.07, llcrnry=height*0.17, urcrnrx=width*0.07, urcrnry=height*0.25)
+    elif(region == 'Amundsen'):
+        m = Basemap(projection='ortho', lat_0=lat0, lon_0=-110, resolution='h', llcrnrx=-width*0.1, llcrnry=height*0.12, urcrnrx=width*0.07, urcrnry=height*0.18)
+    elif(region == 'Belingshausen'):
+        m = Basemap(projection='ortho', lat_0=lat0, lon_0=-75, resolution='h', llcrnrx=-width*0.1, llcrnry=height*0.12, urcrnrx=width*0.07, urcrnry=height*0.25)
+    elif(region == 'Global'):
+        m = m1
+
+    #m.drawmapboundary(linewidth=linewidth);
+    if(draw_grounding_line == True):
+        m.readshapefile("/media/data/Datasets/Shapefiles/AntarcticGroundingLine/GSHHS_f_L6", "GSHHS_f_L6", color='0.75', linewidth=0.1)
+    #m.fillcontinents(color='#ddaa66');
+    m.drawcoastlines(linewidth=linewidth)    
+
+    if regionLonLims:
+        ## Draw the regions longitudinal limits
+        m.drawmeridians(regionLonLims, labels=[0,0,0,0], linewidth=0.5, color='b')    # labels: left,right,top,bottom
+
+    if(annotate == True):
+        parallels = np.arange(-80, -50+1, 5.)    
+        m.drawparallels(parallels,labels=[0,0,0,0], linewidth=0.2) # labels: left,right,top,bottom
+        meridians = np.arange(-180, 180, 20.)
+        m.drawmeridians(meridians,labels=[1,1,1,1], linewidth=0.2)
+        
+        xy = [[-140, -55], [-140, -60] , [-140, -65], [-140, -70], [-140, -75] , [-140, -80]]
+        xytext = np.arange(55, 81, 5)
+        for i in range(len(xytext)):
+            mxy = m(xy[i][0], xy[i][1])
+            plt.annotate(str(xytext[i])+"$^o$S", xy=(mxy[0], mxy[1]), rotation=-45, fontsize=fontsize)
+    return m
+
+
 
 def getCellSize(m, nx=300, ny=300):
     width = m.urcrnrx - m.llcrnrx

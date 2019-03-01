@@ -61,7 +61,7 @@ def plot_var_contours_with_distance(df, mask, var, dist=100, bins=5, wd=12, ht=5
     if not cline:
         cline = list(np.round(np.arange(27., 29.1, 0.1) , 2))
     CS = ax.contour(X.T[:,:], Y.T[:,:], potDensity_mean[:,:], cline, colors='1', linestyles='solid')
-    plt.clabel(CS, cline, colors='1', fontsize=14, fmt='%3.2f')
+    plt.clabel(CS, colors='1', fontsize=14, fmt='%3.2f')
     cbar1 = fig.colorbar(CF, ax=ax, ticks=ticks, pad=0.01)
     cbar1.set_label(colorunit)
     
