@@ -11,6 +11,8 @@ import importlib
 importlib.reload(computeEPnet)
 import xarray as xr
 import matplotlib
+import matplotlib.gridspec as gridspec # GRIDSPEC !
+from matplotlib.colorbar import Colorbar
 
 def truncate(f, n):
     '''Truncates/pads a float f to n decimal places without rounding'''
@@ -435,6 +437,11 @@ def find_sim_freshwater_h(lonmin, lonmax, latmin, latmax, plot=False, clim=False
 ################################################################################################################################################################################
 ################################################################################################################################################################################
 
+
+def conv180_360(lons):
+    lons[lons < 0] = lons[lons < 0] + 360
+    return lons
+
 def conv360_180(lons):
     lons[lons > 180] = lons[lons > 180] - 360
     return lons
@@ -461,12 +468,15 @@ def compute_seaIceFlux_regional_alongTime(latmin, latmax, lonmin, lonmax, timeSt
 
 # provide lonmin, lonmax in 0 to 360 degrees longitudinal system
 # Bathy, and dfmg are in -180 to +180 long system, make necessary conversions for them
-def compute_freshwater_fluxes(df, PEclim, seaIceFlux, bathy, bins=5, wd=12, ht=5, varmin=33, varmax=35, nlevs=10,
+def compute_freshwater_fluxes(df, PEclim, seaIceFlux, bathy, bins=5, wd=9, ht=6, varmin=33, varmax=35, nlevs=10,
                                     colorunit='Salinity (PSU)', save=False, savename="Untitled.png", 
                                     zbin=20, zmin=0, nmin=3, depth_max=0.0, levs=[], integrationDepth=100, plot=True, precip_dir="/media/data/Datasets/AirSeaFluxes/GPCPprecip",
-                                    evap_dir="/media/data/Datasets/AirSeaFluxes/WHOIevap", clim=False, lonmin=np.nan, lonmax=np.nan, latmin=np.nan, latmax=np.nan, fontsize=14, show_legend=False):
+                                    evap_dir="/media/data/Datasets/AirSeaFluxes/WHOIevap", clim=False, lonmin=np.nan, lonmax=np.nan, latmin=np.nan, latmax=np.nan, fontsize=8, show_legend=False):
     matplotlib.rcParams.update({'font.size': fontsize})
-
+    plt.close(1)
+    fig = plt.figure(1, figsize=(wd, ht) )
+    gs = gridspec.GridSpec(3, 2, width_ratios=[1, 0.02], height_ratios=[0.5,1, 0.25], hspace=0.3, wspace=0.08)
+        
     evap_year_start, evap_year_end = 2004, 2015
     
     if(depth_max < 0):
@@ -496,11 +506,13 @@ def compute_freshwater_fluxes(df, PEclim, seaIceFlux, bathy, bins=5, wd=12, ht=5
     PElats = PEclim.sel(latitude=slice(latmax, latmin), longitude=slice(lonmin, lonmax)).latitude.values
     PElons = PEclim.sel(latitude=slice(latmax, latmin), longitude=slice(lonmin, lonmax)).longitude.values    
     bathy_region = bathy.sel(lat=PElats, lon= conv360_180(PElons), method='nearest').elevation.values
-    bathy_region_mask = bathy_region < 0
+    bathy_region_mask = (bathy_region < 0) & (bathy_region > -1000)
     
     if(count > 0):
         if(np.isnan(lonmin) & np.isnan(lonmax)):
             lonmin, lonmax = (df.loc[:, 'LONGITUDE'].min()), int(df.loc[:, 'LONGITUDE'].max())
+            lonmin, lonmax = conv180_360([lonmin, lonmax])[0], conv180_360([lonmin, lonmax])[1]
+
         if not latmin:
             latmin, latmax = (df.loc[:, 'LATITUDE'].min()), int(df.loc[:, 'LATITUDE'].max())
         print(lonmin, lonmax, latmin, latmax)
@@ -508,7 +520,7 @@ def compute_freshwater_fluxes(df, PEclim, seaIceFlux, bathy, bins=5, wd=12, ht=5
         evap_total = (PEclim.sel(latitude=slice(latmax, latmin), longitude=slice(lonmin, lonmax)).where(bathy_region_mask).e.mean(dim=['latitude', 'longitude'])[:] * no_of_days[:]).sum()
         precip_total = (PEclim.sel(latitude=slice(latmax, latmin), longitude=slice(lonmin, lonmax)).where(bathy_region_mask).tp.mean(dim=['latitude', 'longitude'])[:] * no_of_days[:]).sum()
         seaIceFlux_total = compute_seaIceFlux_regional(seaIceFlux, latmin= latmin, latmax= latmax, lonmin= lonmin, lonmax= lonmax)
-        runoff_2 = -seaIceFlux_total - evap_total - precip_total
+        runoff_2 = -(seaIceFlux_total + evap_total + precip_total)
 
         for j in range(12):
             monthmask = df['JULD'].dt.month == j+1
@@ -529,13 +541,15 @@ def compute_freshwater_fluxes(df, PEclim, seaIceFlux, bathy, bins=5, wd=12, ht=5
                 max_ind = np.nanargmax(abssalmean[:, b])
 
                 h_w = abs(depth_bins[1] - depth_bins[0])
-                freshwater_h[b] = h_w * (abssalmean[max_ind, b] - abssalmean[min_ind, b])
+                freshwater_h[b] = h_w * -(abssalmean[max_ind, b] - abssalmean[min_ind, b])
 
                 freshwater_h_error[b] = abs(freshwater_h[b]) * np.sqrt( (abssalstd[:,b][max_ind] / abssalmean[:,b][max_ind])**2 +  (abssalstd[:,b][min_ind] / abssalmean[:,b][min_ind])**2)
 
     else:
         var_mean[i*12 : i*12+13] = np.nan
 
+    gross_fh = np.nansum(freshwater_h * 1e-3)
+    runoff_1 = gross_fh - (seaIceFlux_total + evap_total + precip_total)
 
 
     #var_mean = ma.masked_array(var_mean, mask= ma.masked_less(var_count, nmin).mask)
@@ -543,7 +557,7 @@ def compute_freshwater_fluxes(df, PEclim, seaIceFlux, bathy, bins=5, wd=12, ht=5
     
     #fig.subplots_adjust(hspace=1.3)
     if(plot == True):
-        fig, ax = plt.subplots(nrows=1, ncols=1,squeeze=True, figsize=(wd, ht))
+        ax = plt.subplot(gs[1,0])
 
         if(clim == False):
             year_ax = ax.twiny()
@@ -573,12 +587,9 @@ def compute_freshwater_fluxes(df, PEclim, seaIceFlux, bathy, bins=5, wd=12, ht=5
 
         #cbaxes = fig.add_axes([1.005, 0.075, 0.02, 0.885]) 
         #cbar1 = fig.colorbar(CF, cax=cbaxes)
-        if(clim == False):
-            cbar1 = fig.colorbar(CF, ax=[ax, year_ax], pad=0.015)
-        else:
-            cbar1 = fig.colorbar(CF, ax=ax, pad=0.015)
-        #cbar1.set_label(colorunit, labelpad=4, y=0.5)
-        cbar1.set_label(colorunit)
+        colorbar_ax = plt.subplot(gs[1,1])
+        
+        cbar = Colorbar(ax = colorbar_ax, mappable = CF, orientation = 'vertical', extend='both', label= colorunit)
 
         #conf_int = 1.96*var_sd/np.sqrt(var_count)
         conf_int = var_sd
@@ -592,18 +603,32 @@ def compute_freshwater_fluxes(df, PEclim, seaIceFlux, bathy, bins=5, wd=12, ht=5
         #legend([plot1], "title", prop=fontP)
         artists, labels = CF2.legend_elements(variable_name="\\sigma")
         labels[-1] = 'count $< $'+str(nmin)
-        
-        if(show_legend == True):
-            if(clim == False):
-                lgd = plt.legend(artists, labels, handleheight=2, loc='upper left', bbox_to_anchor=(0.3, -0.19), fancybox=True, ncol=3)
-            if(clim == True):
-                lgd = plt.legend(artists, labels, handleheight=2, loc='upper left', bbox_to_anchor=(0.3, -0.1), fancybox=True, ncol=3)
-            
+
+        legend_ax = plt.subplot(gs[2,0], frameon=False)
+        lgd = legend_ax.legend(artists, labels, handleheight=2, fancybox=True, ncol=3, loc=10)
+        legend_ax.set_xticks([])
+        legend_ax.set_xticklabels([])
+        legend_ax.set_yticks([])
+        legend_ax.set_yticklabels([])    
+
         if(zmin != 0):
             ax.set_ylim(zmin, 0)
         else:
             ax.set_ylim(zlowest, 0)
 
+        fluxes_ax = plt.subplot(gs[0, 0])
+        fnetbar = fluxes_ax.bar(1, gross_fh, width=0.2, label="$F_{net}$")
+        enetbar = fluxes_ax.bar(2, evap_total, width=0.2, label="$E_{net}$")
+        pnetbar = fluxes_ax.bar(3, precip_total, width=0.2, label="$P_{net}$")
+        print("sea ice flux net", seaIceFlux_total.values[0][0])
+        ficebar = fluxes_ax.bar(4, seaIceFlux_total.values[0][0], width=0.2, label="$F_{ice, net}$")
+        runoffbar = fluxes_ax.bar(5, runoff_1.values[0][0], width=0.2, label="$R$")
+        xticklabel = ['$F_{net}$', "$E_{net}$", "$P_{net}$", "$F_{ice, net}$",  "$R$"]
+        fluxes_ax.set_xticks(np.arange(1,6))
+        fluxes_ax.set_xticklabels(xticklabel, rotation=0)
+        fluxes_ax.set_ylabel("$m\, yr^{-1}$")
+        fluxes_ax.grid()
+        
         if(save== True):
             if(show_legend == True):
                 plt.savefig(savename, dpi=150, bbox_extra_artists=(lgd,), bbox_inches='tight')
@@ -611,9 +636,8 @@ def compute_freshwater_fluxes(df, PEclim, seaIceFlux, bathy, bins=5, wd=12, ht=5
                 plt.savefig(savename, dpi=150)
         plt.show()
 
-    gross_fh = np.nansum(freshwater_h * 1e-3)
-    runoff_1 = gross_fh -seaIceFlux_total - evap_total - precip_total
     
-    print(" CTD freshwater estimate = ",np.nansum(gross_fh), "\n runoff_2, E + Fice - P = ", np.asscalar(runoff_2.values), "\n runoff_1,  F + E + Fice - P = ", np.asscalar(runoff_1.values) )
+    
+    print(" CTD freshwater estimate = ",np.nansum(gross_fh), "\n runoff_2, -(E + Fice + P) = ", np.asscalar(runoff_2.values), "\n runoff_1,  F - (E + Fice + P) = ", np.asscalar(runoff_1.values) )
     return [[freshwater_h, freshwater_h_error] , \
              evap_total , precip_total, seaIceFlux_total , depth_bins, runoff_1, runoff_2]

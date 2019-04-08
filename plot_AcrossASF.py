@@ -23,25 +23,23 @@ from matplotlib.image import BboxImage
 from matplotlib.transforms import Bbox, TransformedBbox
 from cartopy.feature import ShapelyFeature
 from cartopy.io.shapereader import Reader
+import matplotlib.ticker as ticker
 
-def plot_AcrossASF(acASF, dfmg, wd=7, ht=4, savefig=False, savename="untitled.png", levels=[], xlat=False, show=True, MEOPDIR = "/media/data",
+def plot_AcrossASF(acASF, dfmg, windsDat, windEk, wd=7, ht=4, savefig=False, savename="untitled.png", levels=[], xlat=False, show=True, MEOPDIR = "/media/data", p2pdist=True, fontsize=8,
                    region='Whole', bathy=None, plotBathy=True, llcrnrlon=-180, llcrnrlat=-90, urcrnrlon=+180, urcrnrlat=+90):
+    matplotlib.rcParams.update({'font.size': fontsize})    
     plt.close(1)
     fig = plt.figure(1, figsize=(wd, ht))
-    gs = gridspec.GridSpec(6, 2, height_ratios=[0.01, 1.5, 0.01, 0.26, 0.26, 0.26], width_ratios=[1, 0.02], hspace=0.6, wspace=0.05)
-    contour_ax = plt.subplot(gs[1,0])
+    gs = gridspec.GridSpec(8, 2, height_ratios=[0.01, 1,0.01, 1.5, 0.01, 0.26, 0.26, 0.26], width_ratios=[1, 0.02], hspace=0.6, wspace=0.05)
+    contour_ax = plt.subplot(gs[3,0])
 
     if(region == "CDP"):
-        llcrnrlon, llcrnrlat = 65, -68
-        urcrnrlon, urcrnrlat = 70, -66
+        llcrnrlon, llcrnrlat = 60, -68
+        urcrnrlon, urcrnrlat = 71, -65.5
         map_proj = ccrs.PlateCarree() #ccrs.Orthographic(65, -90)
     if(region == "WPB"):
         llcrnrlon, llcrnrlat = 69, -70
         urcrnrlon, urcrnrlat = 80, -66
-        map_proj = ccrs.PlateCarree() #ccrs.Orthographic(65, -90)
-    if(region == "AS"):
-        llcrnrlon, llcrnrlat = -120, -75.5
-        urcrnrlon, urcrnrlat = -101, -70
         map_proj = ccrs.PlateCarree() #ccrs.Orthographic(65, -90)
     if(region == "EPB"):
         llcrnrlon, llcrnrlat = 69, -70
@@ -63,45 +61,92 @@ def plot_AcrossASF(acASF, dfmg, wd=7, ht=4, savefig=False, savename="untitled.pn
         llcrnrlon, llcrnrlat = 160, -79
         urcrnrlon, urcrnrlat = 180, -71
         map_proj = ccrs.PlateCarree() #ccrs.Orthographic(65, -90)
+    if(region == "AS"):
+        llcrnrlon, llcrnrlat = -122, -75.5
+        urcrnrlon, urcrnrlat = -98, -70
+        map_proj = ccrs.PlateCarree() #ccrs.Orthographic(65, -90)
+    if(region == "BS"):
+        llcrnrlon, llcrnrlat = -102, -71.5
+        urcrnrlon, urcrnrlat = -58, -60
+        map_proj = ccrs.PlateCarree() #ccrs.Orthographic(65, -90)        
     if(region == "WS"):
         llcrnrlon, llcrnrlat = -50, -82
         urcrnrlon, urcrnrlat = -20, -72
         map_proj = ccrs.PlateCarree() #ccrs.Orthographic(65, -90)
+    if(region == "PMC"):
+        llcrnrlon, llcrnrlat = -19, -74
+        urcrnrlon, urcrnrlat = 0, -65
+        map_proj = ccrs.PlateCarree() #ccrs.Orthographic(65, -90)
+    if(region == "PHC"):
+        llcrnrlon, llcrnrlat = 28, -71
+        urcrnrlon, urcrnrlat = 38, -65
+        map_proj = ccrs.PlateCarree() #ccrs.Orthographic(65, -90)                
     else:
         map_proj = ccrs.PlateCarree()
         
-    mapax = plt.subplot(gs[3:6,0], projection=map_proj)
+    mapax = plt.subplot(gs[5:8,0], projection=map_proj)
     mapax.set_extent([llcrnrlon, urcrnrlon, llcrnrlat, urcrnrlat], crs=ccrs.PlateCarree())
-    colorbar_ax1 = plt.subplot(gs[1,1])
-    colorbar_ax2 = plt.subplot(gs[4:6,1])
+    colorbar_ax1 = plt.subplot(gs[3,1])
+    colorbar_ax2 = plt.subplot(gs[6:8,1])
     
     profs = acASF.PROFILE_NUMBERS
     profs = [int(x) for x in profs.split(',')]
-    dfSelect = dfmg.PROFILE_NUMBER.isin(profs)
-    
-    ctemps = dfmg.loc[dfSelect, "CTEMP"]
-    latlons = dfmg.loc[dfSelect, ["LATITUDE", "LONGITUDE"]].drop_duplicates()
-    
+    year = dfmg.loc[dfmg.PROFILE_NUMBER.isin([profs[0]]), "JULD"].dt.year.values[0]
+    month = dfmg.loc[dfmg.PROFILE_NUMBER.isin([profs[0]]), "JULD"].dt.month.values[0]
+    region = acASF.REGION
+
+    ctemps = []
+    latlons = []
+    depth = []
+    gamman = []
+    echodepth = []
+    dist_gline = []
+    zonal = []
+    merid = []
+    stress_curl = []
+    wek = []
+    no_of_days = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    for i in range(len(profs)):
+        dfSelect = dfmg.PROFILE_NUMBER.isin([profs[i]])
+        ctemps = np.concatenate((ctemps, dfmg.loc[dfSelect, "CTEMP"].values))
+        latlons.append([dfmg.loc[dfSelect, 'LATITUDE'].values[0], dfmg.loc[dfSelect, 'LONGITUDE'].values[0] ])
+        wind_lons = dfmg.loc[dfSelect, 'LONGITUDE'].values[0]
+        if wind_lons < 0:
+            wind_lons = wind_lons + 360
+        stress_curl.append(windEk.stressCurl.sel(time=str(year)+"-{0:-02d}".format(month)+"-01", latitude=dfmg.loc[dfSelect, 'LATITUDE'].values[0], longitude=wind_lons, method='nearest') )
+        wek.append(windEk.sel(time=slice(str(year)+"-{0:-02d}".format(month)+"-01", str(year)+"-{0:-02d}".format(month)+"-"+str(no_of_days[month-1]))).mean(dim=["time"]).wek.sel(latitude=dfmg.loc[dfSelect, 'LATITUDE'].values[0], longitude= wind_lons, method='nearest') )
+        zonal.append(windsDat.sel(time=slice(str(year)+"-{0:-02d}".format(month)+"-01", str(year)+"-{0:-02d}".format(month)+"-"+str(no_of_days[month-1]))).mean(dim=["time"]).u10.sel(latitude=dfmg.loc[dfSelect, 'LATITUDE'].values[0], longitude= wind_lons, method='nearest') )
+        merid.append(windsDat.sel(time=slice(str(year)+"-{0:-02d}".format(month)+"-01", str(year)+"-{0:-02d}".format(month)+"-"+str(no_of_days[month-1]))).mean(dim=["time"]).v10.sel(latitude=dfmg.loc[dfSelect, 'LATITUDE'].values[0], longitude= wind_lons, method='nearest') )
+        depth = np.concatenate((depth,dfmg.loc[dfSelect, "DEPTH"].values))
+        gamman = np.concatenate((gamman, dfmg.loc[dfSelect, "gamman"].values))
+        echodepth = np.concatenate((echodepth, [dfmg.loc[dfSelect].ECHODEPTH.values[0]]))
+
+        
+        if xlat:
+            dist_gline = np.concatenate((dist_gline, dfmg.loc[dfSelect, "LATITUDE"].values))
+        elif p2pdist:
+            if(i == 0):
+                dist_gline = np.concatenate((dist_gline, np.zeros(len(dfmg[dfSelect])) ))
+            else:
+                dist = dist_gline[-1] + haversine(latlons[i-1], latlons[i])
+                dist_gline = np.concatenate( (dist_gline, np.zeros(len(dfmg[dfSelect])) + dist))
+        else:
+            dist_gline = np.concatenate((dist_gline, dfmg.loc[dfSelect, "DIST_GLINE"].values))
+    latlons = np.array(latlons)
+
+    dist_echo = np.unique(dist_gline)
+    print(gamman.shape)
     if xlat:
-        dist_gline = dfmg.loc[dfSelect, "LATITUDE"].values
+        ndist = int(np.max(dist_gline) / 0.1)
     else:
-        dist_gline = dfmg.loc[dfSelect, "DIST_GLINE"].values
-    depth = dfmg.loc[dfSelect, "DEPTH"].values
-    gamman = dfmg.loc[dfSelect, "gamman"].values
-    echodepth = dfmg.loc[dfmg.loc[dfSelect].groupby("PROFILE_NUMBER").tail(1).index].ECHODEPTH.values
-    dist_echo = dfmg.loc[dfmg.loc[dfSelect].groupby("PROFILE_NUMBER").tail(1).index].DIST_GLINE.values
-    
-    if xlat:
-        ndist = int(dfmg.loc[dfSelect, 'DIST_GLINE'].max() / 0.1)
-    else:
-        ndist = int(dfmg.loc[dfSelect, 'DIST_GLINE'].max() / 10.)
+        ndist = int(np.max(dist_gline) / 2.)
     
     dist_grid = np.linspace(np.min(dist_gline), np.max(dist_gline), ndist)
-    ndepth = int(np.abs(dfmg.loc[dfSelect, 'DEPTH'].min()) / 10.)
-    depth_grid = np.linspace(dfmg.loc[dfSelect, 'DEPTH'].min(), 0, ndepth)
-    dist_grid, depth_grid = np.meshgrid(dist_grid, depth_grid)
+    ndepth = int(-np.min(depth) / 10.)
+    depth_grid = np.linspace(np.min(depth), 0, ndepth)
     
-    gamman_interpolated = griddata(np.array([dist_gline, depth]).T, gamman, (dist_grid, depth_grid), method='linear' )
+    dist_grid, depth_grid = np.meshgrid(dist_grid, depth_grid)
+    gamman_interpolated = griddata(np.array([dist_gline, depth]).T, gamman, (dist_grid, depth_grid), method='cubic' )
     
     cs = contour_ax.scatter(dist_gline, depth, c=ctemps, vmin=-2.0, vmax=0.5, s=10)
     
@@ -118,12 +163,14 @@ def plot_AcrossASF(acASF, dfmg, wd=7, ht=4, savefig=False, savename="untitled.pn
         
             
     
-    year = dfmg.loc[dfSelect, "JULD"].dt.year.values[0]
-    month = dfmg.loc[dfSelect, "JULD"].dt.month.values[0]
-    region = acASF.REGION
 
     contour_ax.set_ylabel("Depth (m)")
-    contour_ax.set_xlabel("Distance from GL (km)")
+    if xlat:
+        contour_ax.set_xlabel("Latitude")
+    elif p2pdist:
+        contour_ax.set_xlabel("Chainage (km)")
+    else:
+        contour_ax.set_xlabel("Distance from GL (km)")
     xaxislength = np.max(dist_gline) - np.min(dist_gline)
     contour_ax.set_xlim(np.min(dist_gline) - xaxislength*0.02, np.max(dist_gline) + xaxislength* 0.02)
     contour_ax_twinx.set_xlim(np.min(dist_gline) - xaxislength*0.02, np.max(dist_gline) + xaxislength* 0.02)
@@ -137,10 +184,10 @@ def plot_AcrossASF(acASF, dfmg, wd=7, ht=4, savefig=False, savename="untitled.pn
             levels = None
         cs_gamman = contour_ax.contour(dist_grid, depth_grid, gamman_interpolated, levels=levels, colors='0.5')
         
-    contour_ax.clabel(cs_gamman, colors='k', fontsize=14, fmt='%3.2f')
+    contour_ax.clabel(cs_gamman, colors='k', fontsize=8, fmt='%3.2f')
 
     #mapax.plot(latlons.LONGITUDE.values, latlons.LATITUDE.values, marker="x", markersize=20, transform=ccrs.PlateCarree() )
-    mapax.scatter(latlons.LONGITUDE.values, latlons.LATITUDE.values, marker="x", s=20, transform=ccrs.PlateCarree() )    
+    mapax.scatter(latlons[:, 1], latlons[:, 0], marker="x", s=20, transform=ccrs.PlateCarree() )    
     mapax.coastlines()
     parallels = np.arange(-80, -50+1, 5.)    
     #m.drawparallels(parallels,labels=[1,0,0,0], linewidth=0.2, ax=mapax) # labels: left,right,top,bottom
@@ -190,12 +237,41 @@ def plot_AcrossASF(acASF, dfmg, wd=7, ht=4, savefig=False, savename="untitled.pn
         
     #fig.subplots_adjust(wspace=0.5)
     #fig.subplots_adjust(hspace=1)
+    winds_ax = plt.subplot(gs[1, 0])
+    lns1 = winds_ax.plot(dist_echo, zonal, ".", label="u", color='b')
+    lns2 = winds_ax.plot(dist_echo, merid, "x", label="v", color='b')
+    winds_twinax = winds_ax.twinx()
+    lns3 = winds_twinax.plot(dist_echo, wek, "+", label="w$_{\mathrm{Ek}}$", color='tab:orange')
 
-    space_ax = plt.subplot(gs[2, :], frameon=False)
+    lns = lns1+lns2+lns3
+    labs = [l.get_label() for l in lns]
+
+
+    winds_ax.set_xlim(np.min(dist_gline) - xaxislength*0.02, np.max(dist_gline) + xaxislength* 0.02)
+    winds_ax.set_xticklabels([])
+    winds_ax.set_xticks([])
+    winds_twinax.set_xlim(np.min(dist_gline) - xaxislength*0.02, np.max(dist_gline) + xaxislength* 0.02)
+    winds_twinax.set_xticklabels([])
+    winds_twinax.set_xticks([])
+    #winds_ax.set_ylim(-10, 10)
+    winds_twinax.yaxis.set_major_formatter(ticker.FormatStrFormatter('%0.2e'))
+    winds_ax.set_ylabel("u, v (m/s)")
+    winds_twinax.set_ylabel("w$_{\mathrm{Ek}}$ (m/s)")
+    #winds_twinax.set_ylim(-2e-6, 2e-6)
+    #winds_ax.set_title("o : u,  x : v,  + : w$_{\mathrm{Ek}}$")
+    
+    space_ax = plt.subplot(gs[4, :], frameon=False)
     space_ax.set_xticks([])
     space_ax.set_xticklabels([])
     space_ax.set_yticks([])
     space_ax.set_yticklabels([])    
+
+    space_ax2 = plt.subplot(gs[2, :], frameon=False)
+    space_ax2.set_xticks([])
+    space_ax2.set_xticklabels([])
+    space_ax2.set_yticks([])
+    space_ax2.set_yticklabels([])    
+    
     
     title_ax = plt.subplot(gs[0, :], frameon=False)
     title_ax.set_xticks([])
@@ -203,6 +279,7 @@ def plot_AcrossASF(acASF, dfmg, wd=7, ht=4, savefig=False, savename="untitled.pn
     title_ax.set_yticks([])
     title_ax.set_yticklabels([])    
     title_ax.set_title(region+", "+str(year)+"/ "+str(month))
+    title_ax.legend(lns, labs, loc=4, ncol=3, bbox_to_anchor=(0.95, -1.5))    
     #plt.tight_layout()
     if savefig:
         plt.savefig(savename, dpi=300, bbox_inches="tight")

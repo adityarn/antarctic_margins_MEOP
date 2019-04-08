@@ -33,16 +33,12 @@ def plotProfileNumberContours(df,var="PROFILE_NUMBER", plotBathy=True, pickProfs
     
 
     if(region == "CDP"):
-        llcrnrlon, llcrnrlat = 65, -68
-        urcrnrlon, urcrnrlat = 70, -66
+        llcrnrlon, llcrnrlat = 60, -68
+        urcrnrlon, urcrnrlat = 71, -64
         map_proj = ccrs.PlateCarree() #ccrs.Orthographic(65, -90)
     if(region == "WPB"):
         llcrnrlon, llcrnrlat = 69, -70
         urcrnrlon, urcrnrlat = 80, -66
-        map_proj = ccrs.PlateCarree() #ccrs.Orthographic(65, -90)
-    if(region == "AS"):
-        llcrnrlon, llcrnrlat = -120, -75.5
-        urcrnrlon, urcrnrlat = -101, -70
         map_proj = ccrs.PlateCarree() #ccrs.Orthographic(65, -90)
     if(region == "EPB"):
         llcrnrlon, llcrnrlat = 69, -70
@@ -64,10 +60,26 @@ def plotProfileNumberContours(df,var="PROFILE_NUMBER", plotBathy=True, pickProfs
         llcrnrlon, llcrnrlat = 160, -79
         urcrnrlon, urcrnrlat = 180, -71
         map_proj = ccrs.PlateCarree() #ccrs.Orthographic(65, -90)
+    if(region == "AS"):
+        llcrnrlon, llcrnrlat = -120, -75.5
+        urcrnrlon, urcrnrlat = -101, -70
+        map_proj = ccrs.PlateCarree() #ccrs.Orthographic(65, -90)        
+    if(region == "BS"):
+        llcrnrlon, llcrnrlat = -102, -71.5
+        urcrnrlon, urcrnrlat = -58, -62.5
+        map_proj = ccrs.PlateCarree() #ccrs.Orthographic(65, -90)        
     if(region == "WS"):
         llcrnrlon, llcrnrlat = -50, -82
         urcrnrlon, urcrnrlat = -20, -72
         map_proj = ccrs.PlateCarree() #ccrs.Orthographic(65, -90)
+    if(region == "PMC"):
+        llcrnrlon, llcrnrlat = -20, -74
+        urcrnrlon, urcrnrlat = 0, -65
+        map_proj = ccrs.PlateCarree() #ccrs.Orthographic(65, -90)
+    if(region == "PHC"):
+        llcrnrlon, llcrnrlat = 28, -71
+        urcrnrlon, urcrnrlat = 38, -65
+        map_proj = ccrs.PlateCarree() #ccrs.Orthographic(65, -90)                                
     else:
         map_proj = ccrs.PlateCarree()
 

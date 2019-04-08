@@ -13,6 +13,15 @@ import xarray as xr
 import matplotlib.gridspec as gridspec # GRIDSPEC !
 from matplotlib.colorbar import Colorbar
 import mplcursors
+import cartopy.crs as ccrs
+import cartopy
+import fiona
+import shapely.geometry as sgeom
+from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+from matplotlib.image import BboxImage
+from matplotlib.transforms import Bbox, TransformedBbox
+from cartopy.feature import ShapelyFeature
+from cartopy.io.shapereader import Reader
 
 def createMapProjections(lat0, lon0, region='Whole', fontsize=8, annotate=True, ax=None, linewidth=0.2, draw_grounding_line=True, regionLonLims=None):
     #m = Basemap(projection='hammer',lon_0=270)
@@ -828,3 +837,101 @@ def onpick3(event, m):
     print( m(event.xdata, event.ydata, inverse=True))
 
     
+def plot_region_bathy(region=None, wd=7, ht=5, bathy=None, save=False, savename="untitled.png", levs=[]):
+    plt.close(1)
+    fig = plt.figure(1, figsize=(wd, ht))
+    gs = gridspec.GridSpec(4, 2, width_ratios=[1, 0.02])
+
+    if(region == "CDP"):
+        llcrnrlon, llcrnrlat = 60, -68
+        urcrnrlon, urcrnrlat = 71, -65.5
+        map_proj = ccrs.PlateCarree() #ccrs.Orthographic(65, -90)
+    if(region == "WPB"):
+        llcrnrlon, llcrnrlat = 69, -70
+        urcrnrlon, urcrnrlat = 80, -66
+        map_proj = ccrs.PlateCarree() #ccrs.Orthographic(65, -90)
+    if(region == "EPB"):
+        llcrnrlon, llcrnrlat = 69, -70
+        urcrnrlon, urcrnrlat = 83, -64.5
+        map_proj = ccrs.PlateCarree() #ccrs.Orthographic(65, -90)
+    if(region == "LAC"):
+        llcrnrlon, llcrnrlat = 80, -68
+        urcrnrlon, urcrnrlat = 89, -64.5
+        map_proj = ccrs.PlateCarree() #ccrs.Orthographic(65, -90)
+    if(region == "KC"):
+        llcrnrlon, llcrnrlat = 99, -68
+        urcrnrlon, urcrnrlat = 112, -63
+        map_proj = ccrs.PlateCarree() #ccrs.Orthographic(65, -90)
+    if(region == "AC"):
+        llcrnrlon, llcrnrlat = 133, -68
+        urcrnrlon, urcrnrlat = 147, -64
+        map_proj = ccrs.PlateCarree() #ccrs.Orthographic(65, -90)
+    if(region == "RS"):
+        llcrnrlon, llcrnrlat = 160, -79
+        urcrnrlon, urcrnrlat = 180, -71
+        map_proj = ccrs.PlateCarree() #ccrs.Orthographic(65, -90)
+    if(region == "AS"):
+        llcrnrlon, llcrnrlat = -122, -75.5
+        urcrnrlon, urcrnrlat = -98, -70
+        map_proj = ccrs.PlateCarree() #ccrs.Orthographic(65, -90)
+    if(region == "BS"):
+        llcrnrlon, llcrnrlat = -102, -71.5
+        urcrnrlon, urcrnrlat = -58, -60
+        map_proj = ccrs.PlateCarree() #ccrs.Orthographic(65, -90)        
+    if(region == "WS"):
+        llcrnrlon, llcrnrlat = -50, -82
+        urcrnrlon, urcrnrlat = -20, -72
+        map_proj = ccrs.PlateCarree() #ccrs.Orthographic(65, -90)
+    if(region == "PMC"):
+        llcrnrlon, llcrnrlat = -19, -74
+        urcrnrlon, urcrnrlat = 0, -65
+        map_proj = ccrs.PlateCarree() #ccrs.Orthographic(65, -90)
+    if(region == "PHC"):
+        llcrnrlon, llcrnrlat = 28, -71
+        urcrnrlon, urcrnrlat = 38, -65
+        map_proj = ccrs.PlateCarree() #ccrs.Orthographic(65, -90)                
+    else:
+        map_proj = ccrs.PlateCarree()
+    
+    
+    mapax = plt.subplot(gs[:,0], projection=map_proj)
+    mapax.set_extent([llcrnrlon, urcrnrlon, llcrnrlat, urcrnrlat], crs=ccrs.PlateCarree())
+    colorbar_ax = plt.subplot(gs[1:3,1])
+
+    try:
+        if bathy.variables:
+            pass
+    except:
+        bathy = xr.open_dataset(MEOPDIR+'/Datasets/Bathymetry/GEBCO_2014_2D.nc')
+    bathyS = bathy.sel(lon=slice(llcrnrlon-0.5, urcrnrlon+0.5), lat=slice(llcrnrlat-0.5, urcrnrlat+0.5))
+
+    cs2 = mapax.contourf(bathyS.lon, bathyS.lat, bathyS.elevation.where(bathyS.elevation <= 0).values,  levels=levs, extend="min", transform=ccrs.PlateCarree()) #, , cmap='rainbow'   , levels=clevs,
+    ## plt.figure(2)
+    ## cf = plt.contourf(longrid, latgrid,bathyS.elevation.where(bathyS.elevation <= 0).values, levels=clevs, extend='min') #, , cmap='rainbow'   , levels=clevs,
+    ## plt.figure(1)
+    cbar = Colorbar(ax = colorbar_ax, mappable = cs2, orientation = 'vertical')
+    cbar.ax.get_children()[0].set_linewidths(5)
+    cbar.set_label('Depth (m)')
+    MEOPDIR = "/media/data"
+    shpfile = MEOPDIR+"/Datasets/Shapefiles/AntarcticGroundingLine/GSHHS_f_L6.shp"
+    with fiona.open(shpfile) as records:
+        geometries = [sgeom.shape(shp['geometry']) for shp in records]
+    mapax.add_geometries(geometries, ccrs.PlateCarree(), edgecolor='gray', facecolor='none')
+    
+    ISedgefname = MEOPDIR+"/Datasets/Shapefiles/AntIceShelfEdge/ne_10m_antarctic_ice_shelves_lines.shp"
+    ISe_feature = ShapelyFeature(Reader(ISedgefname).geometries(), ccrs.PlateCarree(), facecolor='none', edgecolor="k")
+    mapax.add_feature(ISe_feature, zorder=3)
+
+    mapax.set_extent([llcrnrlon, urcrnrlon, llcrnrlat, urcrnrlat])        
+    gl = mapax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True, linewidth=1, color='gray', alpha=0.5, linestyle='--')
+    gl.ylabels_right = False
+    gl.xlabels_top = False
+    gl.xformatter = LONGITUDE_FORMATTER
+    gl.yformatter = LATITUDE_FORMATTER
+    gl.xlabel_style = {'size': 8, 'color': 'k'}
+    gl.ylabel_style = {'size': 8, 'color': 'k'}
+
+    if save:
+        plt.savefig(savename, dpi=300)
+
+    plt.show()
