@@ -105,6 +105,7 @@ def plot_AcrossASF(acASF, dfmg, windsDat, windEk, wd=7, ht=4, savefig=False, sav
     merid = []
     stress_curl = []
     wek = []
+    
     no_of_days = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
     for i in range(len(profs)):
         dfSelect = dfmg.PROFILE_NUMBER.isin([profs[i]])
@@ -129,7 +130,7 @@ def plot_AcrossASF(acASF, dfmg, windsDat, windEk, wd=7, ht=4, savefig=False, sav
                 dist_gline = np.concatenate((dist_gline, np.zeros(len(dfmg[dfSelect])) ))
             else:
                 dist = dist_gline[-1] + haversine(latlons[i-1], latlons[i])
-                dist_gline = np.concatenate( (dist_gline, np.zeros(len(dfmg[dfSelect])) + dist))
+                dist_gline = np.concatenate( (dist_gline, np.zeros(len(dfmg[dfSelect]), dtype=float) + dist))
         else:
             dist_gline = np.concatenate((dist_gline, dfmg.loc[dfSelect, "DIST_GLINE"].values))
     latlons = np.array(latlons)
@@ -180,9 +181,11 @@ def plot_AcrossASF(acASF, dfmg, windsDat, windEk, wd=7, ht=4, savefig=False, sav
     else:
         try:
             levels = np.array(str.split(acASF.LEVELS, ","), dtype=float)
+            cs_gamman = contour_ax.contour(dist_grid, depth_grid, gamman_interpolated, levels=levels, colors='0.5')
         except:
             levels = None
-        cs_gamman = contour_ax.contour(dist_grid, depth_grid, gamman_interpolated, levels=levels, colors='0.5')
+            cs_gamman = contour_ax.contour(dist_grid, depth_grid, gamman_interpolated, colors='0.5')
+
         
     contour_ax.clabel(cs_gamman, colors='k', fontsize=8, fmt='%3.2f')
 
