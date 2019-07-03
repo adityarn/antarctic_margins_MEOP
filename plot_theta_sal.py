@@ -5,7 +5,7 @@ import gsw
 import matplotlib
 import sys
 
-sys.path.insert(0, "/usr/local/MATLAB/R2016a/extern/engines/python/build/lib.linux-x86_64-2.7")
+sys.path.insert(0, "/usr/local/MATLAB/R2018a/extern/engines/python/build/lib.linux-x86_64-2.7")
 import matlab.engine
 
 def plot_theta_s(ax, df, mask, title="title",salmin=30, salmax=36, thetamin=-3, thetamax=6, alpha=1.0, s=15, templine=False, sig_lines=[], fontsize=8,

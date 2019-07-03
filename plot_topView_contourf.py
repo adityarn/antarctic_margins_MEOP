@@ -22,6 +22,8 @@ from matplotlib.image import BboxImage
 from matplotlib.transforms import Bbox, TransformedBbox
 from cartopy.feature import ShapelyFeature
 from cartopy.io.shapereader import Reader
+import matplotlib.ticker as mticker
+from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 
 def createMapProjections(lat0, lon0, region='Whole', fontsize=8, annotate=True, ax=None, linewidth=0.2, draw_grounding_line=True, regionLonLims=None):
     #m = Basemap(projection='hammer',lon_0=270)
@@ -310,7 +312,7 @@ def plotDataDensity(df, units='Data Density',
 
         
     datacolorbar = plt.subplot(gs[0, 1])
-    bathycolorbar = plt.subplot(gs[1, 1])
+    #bathycolorbar = plt.subplot(gs[1, 1])
     
     matplotlib.rcParams.update({'font.size': fontsize})    
     
@@ -350,13 +352,14 @@ def plotDataDensity(df, units='Data Density',
         clevs = np.array([-1000, -2000, -3000])[::-1]
         
         longrid, latgrid = np.meshgrid(bathyS.lon.values, bathyS.lat.values)
-        cs = m.contour(longrid, latgrid, bathyS.elevation.where(bathyS.elevation <= 0).values,  latlon=True, levels=clevs, linewidths=0.35, extend='neither', ax=mapax) #, , cmap='rainbow'   , levels=clevs,
+        cs = m.contour(longrid, latgrid, bathyS.elevation.where(bathyS.elevation <= 0).values,  latlon=True, levels=[-1000], colors="magenta", linestyle=":", linewidths=0.35, extend='neither', ax=mapax) #, , cmap='rainbow'   , levels=clevs,
         ## plt.figure(2)
         ## cf = plt.contourf(longrid, latgrid,bathyS.elevation.where(bathyS.elevation <= 0).values, levels=clevs, extend='min') #, , cmap='rainbow'   , levels=clevs,
         ## plt.figure(1)
-        cbar1 = Colorbar(ax = bathycolorbar, mappable = cs, orientation = 'vertical')
-        cbar1.ax.get_children()[0].set_linewidths(5)
-        cbar1.set_label('Depth (m)')
+        
+        #cbar1 = Colorbar(ax = bathycolorbar, mappable = cs, orientation = 'vertical')
+        #cbar1.ax.get_children()[0].set_linewidths(5)
+        #cbar1.set_label('Depth (m)')
         
     for i in range(len(xlons)):
         row = np.argmin(np.abs(Ygrid - ylats[i]))
@@ -935,3 +938,108 @@ def plot_region_bathy(region=None, wd=7, ht=5, bathy=None, save=False, savename=
         plt.savefig(savename, dpi=300)
 
     plt.show()
+
+
+
+def plotDataDensity_NIS_DIS(df1, df2, units='Data Density', save=False, savename="savedFig.png", wd=7, ht=7, show=True, mapax = None, subplotlabel=None, levels=[0, 10, 20, 30, 40, 50, 60, 100, 200, 500], region='Whole', plotBathy=True, fontsize=8, DATADIR = "/media/data", dx=0.5, dy=0.5, region_lons=None):
+
+    df = [df1, df2]    
+    matplotlib.rcParams.update({'font.size': fontsize})        # setting fontsize for plot elements            
+    plt.figure(1, figsize=(wd,ht));
+    external_mapaxis = True
+    if not mapax:
+        print("creating local mapaxis")
+        external_mapaxis = False
+        gs = gridspec.GridSpec(1, 3, height_ratios=[1], width_ratios=[1, 0.03, 0.03])
+        mapax = plt.subplot(gs[0, 0], projection = ccrs.Orthographic(central_longitude=0, central_latitude=-90) )
+        datacolorbar1 = plt.subplot(gs[0, 1])
+        #datacolorbar2 = plt.subplot(gs[0, 2])
+
+    shpfile = DATADIR+"/Datasets/Shapefiles/AntarcticGroundingLine/GSHHS_f_L6.shp"
+    with fiona.open(shpfile) as records:
+        geometries = [sgeom.shape(shp['geometry']) for shp in records]
+    ISedgefname = DATADIR+"/Datasets/Shapefiles/AntIceShelf/ne_10m_antarctic_ice_shelves_polys.shp"
+    ISe_feature = ShapelyFeature(Reader(ISedgefname).geometries(), 
+                                 ccrs.PlateCarree(), linewidth=0.2,
+                                 facecolor='none', 
+                                 edgecolor="k")
+
+    mapax.add_geometries(geometries, ccrs.PlateCarree(), edgecolor='0.25', facecolor='0.7',alpha=0.25, linewidth=0.2)
+    mapax.add_feature(ISe_feature, zorder=3)
+
+    if region_lons:
+        gl_regions = mapax.gridlines(crs=ccrs.PlateCarree(), draw_labels=False, linewidth=0.5, color='gray', alpha=1, linestyle='--', zorder=3)
+        gl_regions.xlocator = mticker.FixedLocator(region_lons)
+        gl_regions.ylocator = mticker.FixedLocator(np.arange(-80, -59, 5) )
+        gl_regions.xformatter = LONGITUDE_FORMATTER
+
+    gl = mapax.gridlines(crs=ccrs.PlateCarree(), draw_labels=False, zorder=3,
+                  linewidth=0.5, color='gray', alpha=1, linestyle='--')
+    
+    gl.xlocator = mticker.FixedLocator(np.arange(-180, 181, 20))
+    gl.ylocator = mticker.FixedLocator(np.arange(-80, -59, 5))
+    gl.xformatter = LONGITUDE_FORMATTER
+    gl.yformatter = LATITUDE_FORMATTER        
+    
+    matplotlib.rcParams.update({'font.size': fontsize})    
+    
+    color_scheme = [['paleturquoise', 'deepskyblue', 'navy'], ['mistyrose', 'salmon', 'darkred']]
+    #color_scheme = ['paleturquoise', 'deepskyblue', 'navy']
+    CF = []
+    for r in range(1):
+        surfIndex = df[r].groupby('PROFILE_NUMBER').head(1).index
+
+        xlons, ylats = df[r].loc[surfIndex , 'LONGITUDE'].values, df[r].loc[surfIndex,'LATITUDE'].values
+
+        Xgrid = np.arange(-180, 180.1, dx)
+        Ygrid = np.arange(-80, -60.1, dy)
+        XX, YY = np.meshgrid(Xgrid, Ygrid)
+        ni = np.zeros((len(Ygrid), len(Xgrid)))
+
+
+        for i in range(len(xlons)):
+            row = np.argmin(np.abs(Ygrid - ylats[i]))
+            col = np.argmin(np.abs(Xgrid - xlons[i]))
+            ni[row , col] = ni[row, col] + 1
+
+        ni = ma.array(ni)
+        ni_masked = ma.masked_equal(ni ,0)
+
+        #zi_masked = ma.masked_array(zi, 0)
+        ticks = levels
+        from matplotlib.colors import BoundaryNorm
+        bnorm = BoundaryNorm(levels, ncolors=len(levels)-1, clip=False)
+
+        cmap = LinearSegmentedColormap.from_list(name='linearCmap', colors=color_scheme[1], N=len(levels)-1) 
+
+        CF.append(mapax.pcolormesh(XX, YY, ni_masked, vmin=min(levels), vmax=max(levels), norm=bnorm, 
+                                   cmap=cmap, transform = ccrs.PlateCarree(), zorder=2))
+    
+    
+    if(plotBathy == True):
+        bathyS = xr.open_dataset('/media/hdd2/SOSE_1_12/bathyS.nc')
+        cs = mapax.contour(bathyS.lon, bathyS.lat, bathyS.elevation.where(bathyS.elevation <= 0).values,  levels=[-1000], colors="b", linestyle=":", linewidths=0.25, transform = ccrs.PlateCarree())
+        
+    if not external_mapaxis:
+        print("no external mapaxis")
+        cbar1 = Colorbar(ax = datacolorbar1, mappable = CF[0], ticks=ticks, orientation='vertical') 
+    #cbar2 = Colorbar(ax = datacolorbar2, mappable = CF[1], ticks=ticks, orientation='vertical')
+    #cbar1.ax.set_yticklabels("")
+    #cbar2.set_label("Data density")
+
+    for l in np.arange(-160, 181, 20):
+        if( (l == 80) or (l == 100) ):
+            text_lat = -80
+        else:
+            text_lat  = -62.5
+        mapax.text(l, text_lat, str(l)+"$^{\circ}$", transform=ccrs.PlateCarree() )
+    if not subplotlabel:
+        pass
+    else:
+        mapax.text(-134, -49, subplotlabel, transform = ccrs.PlateCarree() )
+    if(save==True):
+        plt.savefig(savename, dpi=300, bbox_inches='tight')
+    if mapax:
+        return CF[0]
+    else:
+        plt.show();
