@@ -351,7 +351,7 @@ def waterMassThickness_bootstrapper(axwmb,axdod, df, ymin=0, ymax=None, yticks=[
             rhostd = timeSlice.groupby(pd.cut(timeSlice.DEPTH, depth_bins)).DENSITY_INSITU.std().values
             gammamean = timeSlice.groupby(pd.cut(timeSlice.DEPTH, depth_bins)).gamman.mean().values
 
-            DSWbins = ((salmean > 34.4) & (gammamean >= 28.27) & (thetamean <= -1.8) )                  # Williams et al. 2016
+            DSWbins = ((salmean > 34.4) & (gammamean >= 28.27) & (thetamean <= -1.8) ) & (thetamean >= -1.9)                  # Williams et al. 2016
             lsswbins = ( (salmean >= 34.3) & (salmean <= 34.4) & (thetamean <= -1.5) & (thetamean > -1.9) )                  # Schodlok et al. 2015
             ISWbins = ( (thetamean < -1.9))                                                             # Williams et al. 2016
             CDWbins = ((salmean >= 34.5) & (thetamean >= 0.0) )                                         # common definition, also named as Warm Deep Water (WDW)
@@ -371,7 +371,7 @@ def waterMassThickness_bootstrapper(axwmb,axdod, df, ymin=0, ymax=None, yticks=[
             # note that if a depth bin has low number of samples, then the resampling method does not add any new information
             MCmeans = np.stack(timeSlice.groupby(pd.cut(timeSlice.DEPTH, depth_bins ) ).apply(resample_depthbinData, reps=reps).values)
             
-            DSWbool = ((MCmeans[:, :, 0] > 34.4) & (MCmeans[:,:, 1] <= -1.8) & (MCmeans[:,:,2] >=28.27))
+            DSWbool = ((MCmeans[:, :, 0] > 34.4) & (MCmeans[:,:, 1] <= -1.8) & (MCmeans[:,:, 1] >= -1.9) & (MCmeans[:,:,2] >=28.27))
             DSWbootstrapped = np.nansum(DSWbool, axis=0) * zbin_exact
             DSWdelta = DSWbootstrapped - DSWthickness[i]
             DSW_CI[i] =  DSWthickness[i] - np.percentile(np.sort(DSWdelta), [2.5, 97.5])[::-1]

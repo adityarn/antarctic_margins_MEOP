@@ -280,11 +280,11 @@ def compute_prob_unweighted_bootstrapped(dfwm, save=False, savename='untitled.pn
     ax = plt.subplot(gs[0,0])
     wth = 0.1
     print(prob_DSW_cond_CDW, prob_DSW_cond_CDW_yerr)
-    ax.errorbar(timeaxis-1.5*wth, prob_DSW_cond_CDW, yerr=prob_DSW_cond_CDW_yerr, label='P('+wm1+' | '+wm2+')', color="aqua", fmt="s", capsize=3)
-    ax.errorbar(timeaxis-wth*0.5, prob_DSW_cond_noCDW, yerr=prob_DSW_cond_noCDW_yerr, label='P('+wm1+' | no '+wm2+')', color="b", fmt="o", capsize=3)
+    ax.errorbar(timeaxis-1.5*wth, prob_DSW_cond_CDW, yerr=prob_DSW_cond_CDW_yerr.T, label='P('+wm1+' | '+wm2+')', color="aqua", fmt="s", capsize=3)
+    ax.errorbar(timeaxis-wth*0.5, prob_DSW_cond_noCDW, yerr=prob_DSW_cond_noCDW_yerr.T, label='P('+wm1+' | no '+wm2+')', color="b", fmt="o", capsize=3)
     
-    ax.errorbar(timeaxis+wth*0.5, prob_CDW_cond_DSW, yerr=prob_CDW_cond_DSW_yerr, label='P('+wm2+' | '+wm1+')', color="darkorange", fmt="v", capsize=3)
-    ax.errorbar(timeaxis+wth*1.5, prob_CDW_cond_noDSW, yerr=prob_CDW_cond_noDSW_yerr, label='P('+wm2+' | no '+wm1+')', color="r", fmt="^", capsize=3)
+    ax.errorbar(timeaxis+wth*0.5, prob_CDW_cond_DSW, yerr=prob_CDW_cond_DSW_yerr.T, label='P('+wm2+' | '+wm1+')', color="darkorange", fmt="v", capsize=3)
+    ax.errorbar(timeaxis+wth*1.5, prob_CDW_cond_noDSW, yerr=prob_CDW_cond_noDSW_yerr.T, label='P('+wm2+' | no '+wm1+')', color="r", fmt="^", capsize=3)
     
     ax.set_xticks(timeaxis)
     timeaxis_ticklabel = ['summer', 'winter']
@@ -317,4 +317,5 @@ def compute_prob_unweighted_bootstrapped(dfwm, save=False, savename='untitled.pn
           "\n", 'P('+wm1+' | no '+wm2+')=', prob_DSW_cond_noCDW, prob_DSW_cond_noCDW_CI, 
           "\n", 'P('+wm2+' | '+wm1+')=', prob_CDW_cond_DSW, prob_CDW_cond_DSW_CI,
           "\n", 'P('+wm2+' | no '+wm1+')=',prob_CDW_cond_noDSW, prob_CDW_cond_noDSW_CI)
+    return prob_DSW_cond_noCDW, prob_DSW_cond_noCDW_CI, prob_DSW_cond_noCDW_yerr
 
