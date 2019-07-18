@@ -4,12 +4,14 @@ from matplotlib.pyplot import cm
 import gsw
 import matplotlib
 import sys
+from matplotlib.ticker import (MultipleLocator, FormatStrFormatter,
+                               AutoMinorLocator)
 
 sys.path.insert(0, "/usr/local/MATLAB/R2018a/extern/engines/python/build/lib.linux-x86_64-2.7")
 import matlab.engine
 
 def plot_theta_s(ax, df, mask, title="title",salmin=30, salmax=36, thetamin=-3, thetamax=6, alpha=1.0, s=15, templine=False, sig_lines=[], fontsize=8,
-                 sig_line_annot= [], colorbar_show=False, scat_vmin=0, scat_vmax=650, theta_ticks=[], sal_ticks=[], show_legend=False):
+                 sig_line_annot= [], colorbar_show=False, scat_vmin=0, scat_vmax=650, theta_ticks_major=[], theta_ticks_minor=[], sal_ticks=[], show_legend=False):
     matplotlib.rcParams.update({'font.size': fontsize})    
     #fig, ax = plt.subplots(figsize=(wd, ht))
     
@@ -19,10 +21,10 @@ def plot_theta_s(ax, df, mask, title="title",salmin=30, salmax=36, thetamin=-3, 
     
     SC = ax.scatter(sals, thetas, s=s, c=press, alpha=alpha, vmin=scat_vmin, vmax=scat_vmax)
 
-    if not theta_ticks:
-        pass
-    else:
-        ax.set_yticks(theta_ticks)
+    if theta_ticks_major:
+        ax.set_yticks(theta_ticks_major)
+    if theta_ticks_minor:
+        ax.set_yticks(theta_ticks_minor, minor=True)
         
     if not sal_ticks:
         pass
@@ -95,7 +97,7 @@ def plot_theta_s(ax, df, mask, title="title",salmin=30, salmax=36, thetamin=-3, 
         #ax.annotate("-1.9", xy=(xlim[0] + (xlim[-1] - xlim[0])*0.01, -1.88), fontsize=fontsize)
     ax.set_ylabel("CT ($^o$C)")
     ax.set_xlabel("Salinity (PSU)")
-    ax.grid()
+    ax.grid(which='both')
     ax.set_title(title)
     plt.tight_layout()
     return SC

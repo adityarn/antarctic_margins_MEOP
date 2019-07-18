@@ -217,7 +217,7 @@ def compute_prob_unweighted_bootstrapped(dfwm, save=False, savename='untitled.pn
         seldDSW = dfwm[selMask].DSW.values
         seldCDW = dfwm[selMask].CDW.values
         
-        prob_DSW_cap_NoCDW = len(seldDSW[seldCDW == 0].nonzero()[0]) / totalLength
+        prob_DSW_cap_NoCDW = len(seldDSW[seldCDW == 0].nonzero()[0]) / totalLength # P(DSW intersection noCDW)
         prob_noCDW = len(seldCDW[seldCDW == 0]) / totalLength
         prob_DSW_cond_noCDW[i] = prob_DSW_cap_NoCDW / prob_noCDW
 

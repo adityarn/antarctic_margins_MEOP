@@ -17,7 +17,7 @@ def resample_depthbinData_profWise(timeDepthSliced, reps=1000):
     sliceArray = timeDepthSliced.loc[:, ["PSAL_ADJUSTED", "CTEMP", "gamman"] ].values
     try:
         randidxr = np.random.choice(len(sliceArray), (len(sliceArray), reps), replace=True )
-        DSWcount = np.count_nonzero( ((sliceArray[randidxr][:,:, 2] > 28.27) & (sliceArray[randidxr][:, :, 0] > 34.4) & (sliceArray[randidxr][:,:, 1] <= -1.8)), axis=0 ) / float(len(sliceArray))
+        DSWcount = np.count_nonzero( ((sliceArray[randidxr][:,:, 2] > 28.27) & (sliceArray[randidxr][:, :, 0] > 34.5) & (sliceArray[randidxr][:,:, 1] <= -1.8) & (sliceArray[randidxr][:,:, 1] >= -1.9)), axis=0 ) / float(len(sliceArray))
         lsswCount = np.count_nonzero( ((sliceArray[randidxr][:,:, 0] >= 34.3) & (sliceArray[randidxr][:,:, 0] <= 34.4) & (sliceArray[randidxr][:,:, 1] <= -1.5) & (sliceArray[randidxr][:,:, 1] > -1.9) ), axis=0 ) / float(len(sliceArray))
         ISWcount = np.count_nonzero( (sliceArray[randidxr][:,:,1] < -1.9), axis=0) / float(len(sliceArray))
         CDWcount = np.count_nonzero( ((sliceArray[randidxr][:,:,0] >= 34.5) & (sliceArray[randidxr][:,:,1] >= 0.0)), axis=0 ) / float(len(sliceArray))
@@ -68,7 +68,7 @@ def waterMassThickness_bootstrapper_profileWise(axwmb,axdod, df, ymin=0, ymax=No
             zbin_exact = np.abs(zlowest) / float(number_bins)
             depth_bins = np.linspace(zlowest-1, 0, number_bins)
 
-            DSW = (timeSlice.gamman > 28.27) & (timeSlice.PSAL_ADJUSTED > 34.4) & (timeSlice.CTEMP <= -1.8)
+            DSW = (timeSlice.gamman > 28.27) & (timeSlice.PSAL_ADJUSTED > 34.5) & (timeSlice.CTEMP <= -1.8) & (timeSlice.CTEMP >= -1.9)
             lssw = (timeSlice.PSAL_ADJUSTED >= 34.3) & (timeSlice.PSAL_ADJUSTED <= 34.4) & (timeSlice.CTEMP <= -1.5) & (timeSlice.CTEMP > -1.9)
             ISW = (timeSlice.CTEMP < -1.9)
             CDW = (timeSlice.CTEMP >= 0) & (timeSlice.PSAL_ADJUSTED >= 34.5)
@@ -351,7 +351,7 @@ def waterMassThickness_bootstrapper(axwmb,axdod, df, ymin=0, ymax=None, yticks=[
             rhostd = timeSlice.groupby(pd.cut(timeSlice.DEPTH, depth_bins)).DENSITY_INSITU.std().values
             gammamean = timeSlice.groupby(pd.cut(timeSlice.DEPTH, depth_bins)).gamman.mean().values
 
-            DSWbins = ((salmean > 34.4) & (gammamean >= 28.27) & (thetamean <= -1.8) ) & (thetamean >= -1.9)                  # Williams et al. 2016
+            DSWbins = ((salmean > 34.5) & (gammamean >= 28.27) & (thetamean <= -1.8) ) & (thetamean >= -1.9)                  # Williams et al. 2016
             lsswbins = ( (salmean >= 34.3) & (salmean <= 34.4) & (thetamean <= -1.5) & (thetamean > -1.9) )                  # Schodlok et al. 2015
             ISWbins = ( (thetamean < -1.9))                                                             # Williams et al. 2016
             CDWbins = ((salmean >= 34.5) & (thetamean >= 0.0) )                                         # common definition, also named as Warm Deep Water (WDW)
@@ -371,7 +371,7 @@ def waterMassThickness_bootstrapper(axwmb,axdod, df, ymin=0, ymax=None, yticks=[
             # note that if a depth bin has low number of samples, then the resampling method does not add any new information
             MCmeans = np.stack(timeSlice.groupby(pd.cut(timeSlice.DEPTH, depth_bins ) ).apply(resample_depthbinData, reps=reps).values)
             
-            DSWbool = ((MCmeans[:, :, 0] > 34.4) & (MCmeans[:,:, 1] <= -1.8) & (MCmeans[:,:, 1] >= -1.9) & (MCmeans[:,:,2] >=28.27))
+            DSWbool = ((MCmeans[:, :, 0] > 34.5) & (MCmeans[:,:, 1] <= -1.8) & (MCmeans[:,:, 1] >= -1.9) & (MCmeans[:,:,2] >=28.27))
             DSWbootstrapped = np.nansum(DSWbool, axis=0) * zbin_exact
             DSWdelta = DSWbootstrapped - DSWthickness[i]
             DSW_CI[i] =  DSWthickness[i] - np.percentile(np.sort(DSWdelta), [2.5, 97.5])[::-1]
@@ -526,7 +526,7 @@ def plot_array_waterMassThickness(df, regions, titles, ymin=0, ymax=None, bar_wi
             axdod.set_xticklabels([])
             axdod.set_xlabel("")
 
-            if( (titles[count] == "(l) BSA2") or (titles[count] == "(e) PHCA2") ):
+            if( (titles[count] == "(l) BS-DIS") ): # or (titles[count] == "(e) PHCA2") ):
                 axwmb.set_ylim(0,1500)
                 yticksBSA2 = [250, 750, 1250]
                 axwmb.set_yticks(yticksBSA2)
