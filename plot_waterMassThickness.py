@@ -91,7 +91,7 @@ def waterMassThickness_bootstrapper_profileWise(axwmb,axdod, df, ymin=0, ymax=No
 
             mCDWthickness[i] = np.nansum((mCDWcount / totalcount) * zbin_exact)
 
-            totalWaterColumnSampled[i] = np.nansum(totalcount / totalcount) * zbin_exact
+            totalWaterColumnSampled[i] = np.nansum(totalcount) * zbin_exact
             # computing the Monte Carlo means using repetetive resampling with replacement, with number of repetitions = reps
             # note that if a depth bin has low number of samples, then the resampling method does not add any new information
             MCmeans = np.stack(timeSlice.groupby(pd.cut(timeSlice.DEPTH, np.linspace(zlowest-1, 0, number_bins) ) ).apply(resample_depthbinData_profWise, reps=100).values)
