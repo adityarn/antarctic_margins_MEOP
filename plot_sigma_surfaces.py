@@ -174,17 +174,18 @@ def plot_slope_sigma0_surfaces_variability_mean(dfmg, sigma_surfaces=[27.67, 27.
         ax[-1].set_xlim(0, 360)
         if(i < 2):
             ax[-1].set_ylim(-700, 0)
+            ax[-1].set_yticks(np.arange(-700, 0.1, 100))
             ax[-1].grid(linestyle=":")
             ax[-1].text(10, -650, subplot_labels[0][i])
         else:
-            ax[-1].set_ylim(-2000, 0)
+            ax[-1].set_ylim(-3000, 0)
             axr = ax[-1].twinx()
             axr.plot(lonbins[:-1], topOfSigmaSurface_mean.values, marker=".", color="k", linewidth=0)
-            axr.set_ylim(-2000, 0)
-            axr.text(25, -650/700.*2e3, subplot_labels[0][i])
+            axr.set_ylim(-3000, 0)
+            axr.text(25, -650/700.*3e3, subplot_labels[0][i])
             axr.set_ylabel("Depth (m)")
             ax[-1].grid(linestyle=":")
-        #ax[-1].set_xticklabels("")
+        ax[-1].set_xticklabels("")
         #ax[-1].set_xticks([])
         ax[-1].set_title(subplot_titles[i])
             
@@ -194,11 +195,12 @@ def plot_slope_sigma0_surfaces_variability_mean(dfmg, sigma_surfaces=[27.67, 27.
         yerr= topOfSigmaSurface_corr_CTEMP_std.values
         ax[-1].fill_between(lonbins[:-1], topOfSigmaSurface_corr_CTEMP_mean.values - yerr, topOfSigmaSurface_corr_CTEMP_mean.values + yerr, facecolor="coral", edgecolor="r", alpha=0.5)
         
-        #ax[-1].set_xticklabels("")
+        ax[-1].set_xticklabels("")
         #ax[-1].set_xticks([])
         ax[-1].set_xlim(0, 360)
-        ax[-1].set_ylim(-2, 2)
-        ax[-1].grid(linestyle=":")
+        ax[-1].set_ylim(-2, 1.9)
+        ax[-1].set_yticks(np.arange(-1.5, 2, 1), minor=True )
+        ax[-1].grid(linestyle=":", which="both")
         ax[-1].text(10, 1.5, subplot_labels[1][i])
         
         ax.append(plt.subplot(gs[2, i]))
@@ -210,21 +212,22 @@ def plot_slope_sigma0_surfaces_variability_mean(dfmg, sigma_surfaces=[27.67, 27.
         ax[-1].set_ylim(34.3, 34.85)
         ax[-1].grid(linestyle=":")
         ax[-1].text(10, 34.8, subplot_labels[2][i])
-        #ax[-1].set_xticklabels("")
+        ax[-1].set_xticklabels("")
 
         ax.append(plt.subplot(gs[3, i]) )
         count = dfmg[dfsel].CTEMP.groupby(pd.cut(dfmg[dfsel].LONGITUDE, lonbins) ).count()
-        ax[-1].fill_between(lonbins[:-1], 0, count, color="k", alpha=0.5)
-        ax[-1].plot(lonbins[:-1], count, linewidth=0, marker="o", color="k", markersize=1)
+        ax[-1].fill_between(lonbins[:-1], 0, count, color="k", alpha=0.7)
+        ax[-1].plot(lonbins[:-1], count, linewidth=0, marker="o", color="k", markersize=1, zorder=3)
         ax[-1].set_ylim(1e-1, 4e3)
         ax[-1].set_yscale("log")
         ax[-1].text(10, 1e3, subplot_labels[3][i])
         ax[-1].set_yticks([ 1e0, 1e1, 1e2, 1e3])
+        ax[-1].grid(linestyle=":", zorder=1)
         
         for j in range(1,5,1):
             if i>0:
                 pass
-                #ax[-j].set_yticklabels("")
+                ax[-j].set_yticklabels("")
                 #ax[-j].set_yticks([])
             else:
                 ax[-j].set_ylabel(ylabel[::-1][j-1])

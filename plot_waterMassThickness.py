@@ -1011,7 +1011,7 @@ def plot_WaterMass_Correlation_byRegion_CI(waterMassThickness, regionsName=[], t
                 axarr[-1].errorbar( (k+1)+2.*wth, wmCorr.loc["ISW", windtypes[k] ], yerr=np.array([wmCorr_yerr.loc["ISW", windtypes[k]]]).T, label=labels[4], color="slategray", fmt="^", capsize=3)
             axarr[-1].axhline(y=0)
             axarr[-1].set_title(titles[count])
-            axarr[-1].set_xticks([1,1.5, 2,2.5, 3])
+            axarr[-1].set_xticks([1, 2, 3])
             if(i == mrows-1):
                 axarr[-1].set_xticklabels(["-U$_{Slope}$", "", "V", "", "$-(\\nabla \\times \\tau)_{slope}$"], rotation=0)
             else:
