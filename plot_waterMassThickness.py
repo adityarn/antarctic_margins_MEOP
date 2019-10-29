@@ -991,6 +991,11 @@ def plot_WaterMass_Correlation_byRegion_CI(waterMassThickness, regionsName=[], t
     wth = 0.1
     axarr = []
     count = 0
+
+    shaded_x, shaded_y = np.meshgrid(np.linspace(0,3.5, 100),  np.linspace(-1,1,10))
+    shading = np.ones_like(shaded_x)
+    shading = ma.masked_where((shaded_x > 1.5) & (shaded_x < 2.5), shading)
+    
     for i in range(mrows):
         for j in range(ncols):
             axarr.append(plt.subplot(gs[i,j]))
@@ -1012,8 +1017,10 @@ def plot_WaterMass_Correlation_byRegion_CI(waterMassThickness, regionsName=[], t
             axarr[-1].axhline(y=0)
             axarr[-1].set_title(titles[count])
             axarr[-1].set_xticks([1, 2, 3])
+            axarr[-1].set_xlim(0.5,3.5)
+            axarr[-1].pcolormesh(shaded_x, shaded_y, shading, cmap="Greys", vmin=0, vmax=7)
             if(i == mrows-1):
-                axarr[-1].set_xticklabels(["-U$_{Slope}$", "", "V", "", "$-(\\nabla \\times \\tau)_{slope}$"], rotation=0)
+                axarr[-1].set_xticklabels(["-U$_{Slope}$", "V", "$-(\\nabla \\times \\tau)_{slope}$"], rotation=0)
             else:
                 axarr[-1].set_xticklabels([])
                 axarr[-1].set_xlabel("")
@@ -1027,7 +1034,7 @@ def plot_WaterMass_Correlation_byRegion_CI(waterMassThickness, regionsName=[], t
                 axarr[-1].set_ylabel("")
             axarr[-1].set_ylim(-1, 1)
             axarr[-1].set_yticks(np.arange(-1,1.1,0.25))
-            axarr[-1].grid(linestyle=":")
+            axarr[-1].grid(linestyle=":", axis="y")
             count+=1
     
     handles, labels = axarr[-1].get_legend_handles_labels()

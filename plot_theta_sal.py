@@ -20,6 +20,7 @@ def plot_theta_s(ax, df, mask, title="title",salmin=30, salmax=36, thetamin=-3, 
     press = df.loc[mask, 'PRES_ADJUSTED']
     
     SC = ax.scatter(sals, thetas, s=s, c=press, alpha=alpha, vmin=scat_vmin, vmax=scat_vmax)
+    ax.scatter(sals[sals>35], thetas[sals>35], s=s, c='0.75', alpha=alpha, vmin=scat_vmin, vmax=scat_vmax)
 
     if theta_ticks_major:
         ax.set_yticks(theta_ticks_major)
@@ -93,6 +94,7 @@ def plot_theta_s(ax, df, mask, title="title",salmin=30, salmax=36, thetamin=-3, 
         
     if(templine == True):
         ax.plot(SP, CT_freezing, linestyle="--", linewidth=1, color="b")
+        ax.axhline(y=0, linestyle="--", linewidth=1, color="r")
         #ax.axhline(y=-1.9, linestyle="--", linewidth=1)
         #ax.annotate("-1.9", xy=(xlim[0] + (xlim[-1] - xlim[0])*0.01, -1.88), fontsize=fontsize)
     ax.set_ylabel("CT ($^o$C)")

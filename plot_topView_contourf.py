@@ -967,19 +967,23 @@ def plotDataDensity_NIS_DIS(df1, df2, units='Data Density', save=False, savename
     mapax.add_geometries(geometries, ccrs.PlateCarree(), edgecolor='0.25', facecolor='0.7',alpha=0.25, linewidth=0.2)
     mapax.add_feature(ISe_feature, zorder=3)
 
-    if region_lons:
-        gl_regions = mapax.gridlines(crs=ccrs.PlateCarree(), draw_labels=False, linewidth=0.5, color='gray', alpha=1, linestyle='--', zorder=3)
-        gl_regions.xlocator = mticker.FixedLocator(region_lons)
-        gl_regions.ylocator = mticker.FixedLocator(np.arange(-80, -59, 5) )
-        gl_regions.xformatter = LONGITUDE_FORMATTER
 
-    gl = mapax.gridlines(crs=ccrs.PlateCarree(), draw_labels=False, zorder=3,
+    gl = mapax.gridlines(crs=ccrs.PlateCarree(), draw_labels=False, zorder=2,
                   linewidth=0.5, color='gray', alpha=1, linestyle='--')
     
     gl.xlocator = mticker.FixedLocator(np.arange(-180, 181, 20))
     gl.ylocator = mticker.FixedLocator(np.arange(-80, -59, 5))
     gl.xformatter = LONGITUDE_FORMATTER
-    gl.yformatter = LATITUDE_FORMATTER        
+    gl.yformatter = LATITUDE_FORMATTER
+
+    if region_lons:
+        gl_regions = mapax.gridlines(crs=ccrs.PlateCarree(), draw_labels=False, linewidth=0.5, color='blue', alpha=1, linestyle=':', zorder=3)
+        #gl_regions_lowZ = mapax.gridlines(crs=ccrs.PlateCarree(), draw_labels=False, linewidth=0.5, color='blue', alpha=1, linestyle='--', zorder=1)
+        gl_regions.xlocator = mticker.FixedLocator(region_lons)
+        gl_regions.ylocator = mticker.FixedLocator(np.arange(-80, -59, 5) )
+        gl_regions.xformatter = LONGITUDE_FORMATTER
+        gl_regions.yformatter = LATITUDE_FORMATTER
+        gl_regions.ylines = False
     
     matplotlib.rcParams.update({'font.size': fontsize})    
     
@@ -1013,7 +1017,7 @@ def plotDataDensity_NIS_DIS(df1, df2, units='Data Density', save=False, savename
         cmap = LinearSegmentedColormap.from_list(name='linearCmap', colors=color_scheme[1], N=len(levels)-1) 
 
         CF.append(mapax.pcolormesh(XX, YY, ni_masked, vmin=min(levels), vmax=max(levels), norm=bnorm, 
-                                   cmap=cmap, transform = ccrs.PlateCarree(), zorder=2))
+                                   cmap=cmap, transform = ccrs.PlateCarree(), zorder=1))
     
     
     if(plotBathy == True):
