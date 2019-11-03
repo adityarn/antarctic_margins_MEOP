@@ -14,13 +14,19 @@ def plot_theta_s(ax, df, mask, title="title",salmin=30, salmax=36, thetamin=-3, 
                  sig_line_annot= [], colorbar_show=False, scat_vmin=0, scat_vmax=650, theta_ticks_major=[], theta_ticks_minor=[], sal_ticks=[], show_legend=False):
     matplotlib.rcParams.update({'font.size': fontsize})    
     #fig, ax = plt.subplots(figsize=(wd, ht))
+
+    sel_sal35 = (df.PSAL_ADJUSTED > 35)
+    sel_tags = df.PLATFORM_NUMBER.isin(df.loc[sel_sal35, "PLATFORM_NUMBER"].unique())
     
-    thetas = df.loc[mask, 'CTEMP']
-    sals = df.loc[mask, 'PSAL_ADJUSTED']
-    press = df.loc[mask, 'PRES_ADJUSTED']
-    
+    sals = df[sel_tags & mask].drop_duplicates(["PSAL_ADJUSTED", "CTEMP"]).PSAL_ADJUSTED
+    thetas = df[sel_tags & mask].drop_duplicates(["PSAL_ADJUSTED", "CTEMP"]).CTEMP
+    ax.scatter(sals, thetas, s=0.1, c='0.75', alpha=0.25, vmin=scat_vmin, vmax=scat_vmax)
+
+    thetas = df.loc[mask & ~sel_tags, 'CTEMP']
+    sals = df.loc[mask & ~sel_tags, 'PSAL_ADJUSTED']
+    press = df.loc[mask & ~sel_tags, 'PRES_ADJUSTED']
     SC = ax.scatter(sals, thetas, s=s, c=press, alpha=alpha, vmin=scat_vmin, vmax=scat_vmax)
-    ax.scatter(sals[sals>35], thetas[sals>35], s=s, c='0.75', alpha=alpha, vmin=scat_vmin, vmax=scat_vmax)
+    
 
     if theta_ticks_major:
         ax.set_yticks(theta_ticks_major)
