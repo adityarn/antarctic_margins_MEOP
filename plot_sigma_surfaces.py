@@ -120,7 +120,7 @@ def plot_slope_sigma0_surfaces_CF_climatology(dfmg, sigma_surfaces=[27.67, 27.74
 
 
 
-def plot_slope_sigma0_surfaces_variability_mean(dfmg, sigma_surfaces=[27.67, 27.74, 27.86], surface_type=["equal_to", "equal_to", "greater_than"], save=False, savename="Untitled.png", tol=0.01, figno=1, wd=190/25.4, ht=230/25.4):
+def plot_slope_sigma0_surfaces_variability_mean(dfmg, sigma_surfaces=[27.67, 27.74, 27.86], surface_type=["equal_to", "equal_to", "greater_than"], save=False, savename="Untitled.png", tol=0.01, figno=1, wd=190/25.4, ht=230/25.4, echodepth_gt=-3000, echodepth_lt = -1000):
     plt.close(figno)
     plt.figure(figno, figsize=(wd, ht))
     gs = gridspec.GridSpec(4, 5, width_ratios=[1,1,1,0.01, 0.1], height_ratios = [1,1,1,0.5], wspace=0.01, hspace=0.01)
@@ -148,7 +148,7 @@ def plot_slope_sigma0_surfaces_variability_mean(dfmg, sigma_surfaces=[27.67, 27.
     ylabel = ["Depth (m)", "CT$^\circ$C", "Salinity (PSU)", "Count"]
     subplot_labels = [["(a)", "(e)", "(i)"], ["(b)", "(f)", "(j)"], ["(c)", "(g)", "(k)"], ["(d)", "(h)", "(l)"]]
     for i in range(len(sigma_surfaces)):
-        dfsel = (dfmg.POT_DENSITY > sigma_surfaces[i]-tol) &  (dfmg.POT_DENSITY < sigma_surfaces[i]+tol) & (dfmg.SHELF_BREAK_PROFILE)
+        dfsel = (dfmg.POT_DENSITY > sigma_surfaces[i]-tol) &  (dfmg.POT_DENSITY < sigma_surfaces[i]+tol) & (dfmg.SHELF_BREAK_PROFILE) & (dfmg.ECHODEPTH > echodepth_gt) & (dfmg.ECHODEPTH < echodepth_lt)
         # if(surface_type[i] == "equal_to"):
         #     dfsel = (dfmg.POT_DENSITY > sigma_surfaces[i]-tol) &  (dfmg.POT_DENSITY < sigma_surfaces[i]+tol) & (dfmg.SHELF_BREAK_PROFILE)
         # elif(surface_type[i] == "greater_than"):
