@@ -44,7 +44,7 @@ def compute_lonbinned_OHC(gdf, dz, h_b, rho0, Cp, Tf0):
         return np.array([np.nan, np.nan])
     
 
-def compute_OHC(df, ax, h_b = -500, dz=5, lon_bins = np.arange(-180, 180.01, 5), ymin=0, ymax=6e9, hide_yticks=False ):
+def compute_OHC(df, ax, h_b = -500, dz=5, lon_bins = np.arange(0, 360.01, 5), ymin=0, ymax=6e9, hide_yticks=False ):
     #pandarallel.initialize()
     rho0 = 1027.7 #kg/m3
     Cp = 3850 #J/kg/K heat capacity of sea water
@@ -57,7 +57,7 @@ def compute_OHC(df, ax, h_b = -500, dz=5, lon_bins = np.arange(-180, 180.01, 5),
     #OHC column 0 has the heat content vector in longitudinal bins.
     #OHC column 1 has the standard deviation of the heat content vector in each longitudinal bin.
     lon_bins = (lon_bins[1:] + lon_bins[:-1])*0.5
-    lon_bins[lon_bins < 0] = lon_bins[lon_bins < 0] + 360
+    #lon_bins[lon_bins < 0] = lon_bins[lon_bins < 0] + 360
     
     ax.fill_between(np.sort(lon_bins), (OHC[:, 0]-OHC[:, 1])[np.argsort(lon_bins)], (OHC[:, 0]+OHC[:, 1])[np.argsort(lon_bins)], facecolor="coral", edgecolor="r", alpha=0.5)
     #ax.errorbar(lon_bins[1:], OHC[:, 0], yerr = OHC[:, 1], fmt=".", color="r", markersize=3, capsize=3)

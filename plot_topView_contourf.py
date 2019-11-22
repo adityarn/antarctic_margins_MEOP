@@ -1031,7 +1031,7 @@ def plotDataDensity_NIS_DIS(df1, df2, units='Data Density', save=False, savename
     #cbar1.ax.set_yticklabels("")
     #cbar2.set_label("Data density")
 
-    for l in np.arange(-160, 181, 20):
+    for l in np.arange(0, 360, 20):
         if( (l == 80) or (l == 100) ):
             text_lat = -80
         else:
@@ -1094,7 +1094,7 @@ def plot_fields_orthographic(field, longitude_coord, latitude_coord, vmin, vmax,
     mapax.add_geometries(geometries, ccrs.PlateCarree(), edgecolor='0.25', facecolor='0.7',alpha=0.25, linewidth=0.2)
     mapax.add_feature(ISe_feature, zorder=3)
 
-    for l in np.arange(-160, 181, 20):
+    for l in np.arange(0, 360, 20):
         if( (l == 80) or (l == 100) ):
             text_lat = -62.5
         else:

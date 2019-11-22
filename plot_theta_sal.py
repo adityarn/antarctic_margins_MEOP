@@ -18,9 +18,9 @@ def plot_theta_s(ax, df, mask, title="title",salmin=30, salmax=36, thetamin=-3, 
     sel_sal35 = (df.PSAL_ADJUSTED > 35)
     sel_tags = df.PLATFORM_NUMBER.isin(df.loc[sel_sal35, "PLATFORM_NUMBER"].unique())
     
-    sals = df[sel_tags & mask].drop_duplicates(["PSAL_ADJUSTED", "CTEMP"]).PSAL_ADJUSTED
-    thetas = df[sel_tags & mask].drop_duplicates(["PSAL_ADJUSTED", "CTEMP"]).CTEMP
-    ax.scatter(sals, thetas, s=0.1, c='0.75', alpha=0.25, vmin=scat_vmin, vmax=scat_vmax)
+    # sals = df[sel_tags & mask].drop_duplicates(["PSAL_ADJUSTED", "CTEMP"]).PSAL_ADJUSTED
+    # thetas = df[sel_tags & mask].drop_duplicates(["PSAL_ADJUSTED", "CTEMP"]).CTEMP
+    # ax.scatter(sals, thetas, s=0.1, c='0.75', alpha=0.25, vmin=scat_vmin, vmax=scat_vmax)
 
     thetas = df.loc[mask & ~sel_tags, 'CTEMP']
     sals = df.loc[mask & ~sel_tags, 'PSAL_ADJUSTED']
