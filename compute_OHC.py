@@ -7,7 +7,7 @@ import numpy as np
 import sys
 import importlib
 import matplotlib.gridspec as gridspec
-from pandarallel import pandarallel
+#from pandarallel import pandarallel
 import pdb
 import multiprocessing as mp
 
@@ -21,7 +21,6 @@ def compute_lonbinned_OHC(gdf, dz, h_b, rho0, Cp, Tf0):
         #meop_interpolated = p.map(interpolate_MEOP, gdf[dfsel_MEOP].groupby("PROFILE_NUMBER"))
 
         meop_pot_temp = gsw.pt_from_t(meop_interpolated[:, 0], meop_interpolated[:, 1] , meop_interpolated[:, 2] , 0.0 )
-
 
         dfsel_argo_soccom = (gdf.DATASET == "Argo") | (gdf.DATASET == "SOCCOM")
         total_length = len(meop_pot_temp) + len(gdf[dfsel_argo_soccom])

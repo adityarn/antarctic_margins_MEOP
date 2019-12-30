@@ -6,12 +6,12 @@ import importlib
 import numpy.ma as ma
 import cartopy.crs as ccrs
 import pdb
-from mpl_toolkits.basemap import Basemap, cm
+#from mpl_toolkits.basemap import Basemap, cm
 from matplotlib.colors import LinearSegmentedColormap
 from IPython.display import Image
 import matplotlib.colors as colors
 from scipy.interpolate import griddata
-import geopandas as gpd
+#import geopandas as gpd
 from shapely.geometry import Point
 from scipy.stats import gaussian_kde
 import xarray as xr
@@ -120,7 +120,7 @@ def plot_slope_sigma0_surfaces_CF_climatology(dfmg, sigma_surfaces=[27.67, 27.74
 
 
 
-def plot_slope_sigma0_surfaces_variability_mean(dfmg, sigma_surfaces=[27.67, 27.74, 27.86], surface_type=["equal_to", "equal_to", "greater_than"], save=False, savename="Untitled.png", tol=0.01, figno=1, wd=190/25.4, ht=230/25.4, echodepth_gt=-3000, echodepth_lt = -1000):
+def plot_slope_sigma0_surfaces_variability_mean(dfmg, sigma_surfaces=[27.67, 27.74, 27.86], surface_type=["equal_to", "equal_to", "greater_than"], save=False, savename="Untitled.png", tol=0.01, figno=1, wd=190/25.4, ht=230/25.4, echodepth_gt=-3000, echodepth_lt = -1000, lonbins = np.arange(0, 361, 5)):
     plt.close(figno)
     plt.figure(figno, figsize=(wd, ht))
     gs = gridspec.GridSpec(4, 5, width_ratios=[1,1,1,0.01, 0.1], height_ratios = [1,1,1,0.5], wspace=0.01, hspace=0.01)
@@ -136,7 +136,7 @@ def plot_slope_sigma0_surfaces_variability_mean(dfmg, sigma_surfaces=[27.67, 27.
     ax = []
     subplot_titles = ["$\sigma_O=$"+str(sigma_surfaces[0]), "$\sigma_0=$"+str(sigma_surfaces[1]), "$\sigma_O=$"+str(sigma_surfaces[2])]
 
-    lonbins = np.arange(0, 361, 5)
+    
     topOfSigmaSurface_mean = np.zeros(len(lonbins)-1 )
     topOfSigmaSurface_std = np.zeros(len(lonbins)-1 )
     
@@ -185,7 +185,7 @@ def plot_slope_sigma0_surfaces_variability_mean(dfmg, sigma_surfaces=[27.67, 27.
             axr.text(25, -650/700.*3e3, subplot_labels[0][i])
             axr.set_ylabel("Depth (m)")
             ax[-1].grid(linestyle=":")
-        ax[-1].set_xticklabels("")
+        #ax[-1].set_xticklabels("")
         #ax[-1].set_xticks([])
         ax[-1].set_title(subplot_titles[i])
             
@@ -194,11 +194,10 @@ def plot_slope_sigma0_surfaces_variability_mean(dfmg, sigma_surfaces=[27.67, 27.
         ax[-1].plot(lonbins[:-1], topOfSigmaSurface_corr_CTEMP_mean.values, marker=".", color="r", linewidth=0)
         yerr= topOfSigmaSurface_corr_CTEMP_std.values
         ax[-1].fill_between(lonbins[:-1], topOfSigmaSurface_corr_CTEMP_mean.values - yerr, topOfSigmaSurface_corr_CTEMP_mean.values + yerr, facecolor="coral", edgecolor="r", alpha=0.5)
-        
-        ax[-1].set_xticklabels("")
+        #ax[-1].set_xticklabels("")
         #ax[-1].set_xticks([])
         ax[-1].set_xlim(0, 360)
-        ax[-1].set_ylim(-2, 1.9)
+        ax[-1].set_ylim(-2, 2.2)
         ax[-1].set_yticks(np.arange(-1.5, 2, 1), minor=True )
         ax[-1].grid(linestyle=":", which="both")
         ax[-1].text(10, 1.5, subplot_labels[1][i])
@@ -212,22 +211,24 @@ def plot_slope_sigma0_surfaces_variability_mean(dfmg, sigma_surfaces=[27.67, 27.
         ax[-1].set_ylim(34.3, 34.85)
         ax[-1].grid(linestyle=":")
         ax[-1].text(10, 34.8, subplot_labels[2][i])
-        ax[-1].set_xticklabels("")
+        #ax[-1].set_xticklabels("")
 
         ax.append(plt.subplot(gs[3, i]) )
         count = dfmg[dfsel].CTEMP.groupby(pd.cut(dfmg[dfsel].LONGITUDE, lonbins) ).count()
         ax[-1].fill_between(lonbins[:-1], 0, count, color="k", alpha=0.7)
         ax[-1].plot(lonbins[:-1], count, linewidth=0, marker="o", color="k", markersize=1, zorder=3)
+        ax[-1].set_xlim(0, 360)
         ax[-1].set_ylim(1e-1, 4e3)
         ax[-1].set_yscale("log")
         ax[-1].text(10, 1e3, subplot_labels[3][i])
         ax[-1].set_yticks([ 1e0, 1e1, 1e2, 1e3])
         ax[-1].grid(linestyle=":", zorder=1)
+        ax[-1].set_xlabel("Longitude")
         
         for j in range(1,5,1):
             if i>0:
                 pass
-                ax[-j].set_yticklabels("")
+                #ax[-j].set_yticklabels("")
                 #ax[-j].set_yticks([])
             else:
                 ax[-j].set_ylabel(ylabel[::-1][j-1])
@@ -341,7 +342,7 @@ def plot_slope_sigma0_surfaces_CF(dfmg, sigma_surfaces=[27.67, 27.74, 27.86], su
 
 
 
-def plot_slope_sigma0_surfaces_variability(dfmg, sigma_surfaces=[27.67, 27.74, 27.86], surface_type=["equal_to", "equal_to", "greater_than"], save=False, savename="Untitled.png", tol=0.01, figno=1, wd=190/25.4, ht=230/25.4):
+def plot_slope_sigma0_surfaces_variability(dfmg, sigma_surfaces=[27.67, 27.74, 27.86], surface_type=["equal_to", "equal_to", "greater_than"], save=False, savename="Untitled.png", tol=0.01, figno=1, wd=190/25.4, ht=230/25.4, lonbins = np.arange(0,361,5) ):
     plt.close(figno)
     plt.figure(figno, figsize=(wd, ht))
     gs = gridspec.GridSpec(3, 5, width_ratios=[1,1,1,0.01, 0.1], wspace=0.01, hspace=0.01)
@@ -357,7 +358,6 @@ def plot_slope_sigma0_surfaces_variability(dfmg, sigma_surfaces=[27.67, 27.74, 2
     ax = []
     subplot_titles = ["$\sigma_O=$"+str(sigma_surfaces[0]), "$\sigma_0=$"+str(sigma_surfaces[1]), "$\sigma_O=$"+str(sigma_surfaces[2])]
 
-    lonbins = np.arange(0, 361, 5)
     topOfSigmaSurface_mean = np.zeros(len(lonbins)-1 )
     topOfSigmaSurface_std = np.zeros(len(lonbins)-1 )
     
@@ -414,6 +414,7 @@ def plot_slope_sigma0_surfaces_variability(dfmg, sigma_surfaces=[27.67, 27.74, 2
         ax[-1].plot(lonbins[:-1], yerr, marker=".", color="b", linewidth=0.2)
         ax[-1].set_xlim(0, 360)
         ax[-1].set_xlabel("Longitude")
+        ax[-1].set_xlim(0, 360)
         #ax[-1].set_ylim(34.3, 34.85)
         ax[-1].grid(linestyle=":")
         #ax[-1].text(10, 34.8, subplot_labels[2][i])

@@ -91,7 +91,7 @@ def waterMassThickness_bootstrapper_profileWise(axwmb,axdod, df, ymin=0, ymax=No
 
             mCDWthickness[i] = np.nansum((mCDWcount / totalcount) * zbin_exact)
 
-            totalWaterColumnSampled[i] = np.nansum(totalcount) * zbin_exact
+            totalWaterColumnSampled[i] = len(timeSlice.groupby(pd.cut(timeSlice.DEPTH, depth_bins ) ).CTEMP.count().nonzero()[0]) * zbin_exact
             # computing the Monte Carlo means using repetetive resampling with replacement, with number of repetitions = reps
             # note that if a depth bin has low number of samples, then the resampling method does not add any new information
             MCmeans = np.stack(timeSlice.groupby(pd.cut(timeSlice.DEPTH, np.linspace(zlowest-1, 0, number_bins) ) ).apply(resample_depthbinData_profWise, reps=100).values)
@@ -424,13 +424,13 @@ def waterMassThickness_bootstrapper(axwmb,axdod, df, ymin=0, ymax=None, yticks=[
         
     if ymax:
         axwmb.set_ylim(ymin, ymax)
-    axdod.set_ylim(0, ymax_dod)
+    #axdod.set_ylim(0, ymax_dod)
     axwmb.set_xticks(timeaxis)
     axwmb.set_xticklabels(timeaxis_ticklabel)
     if yticks:
         axwmb.set_yticks(yticks)
-    if yticks_dod:
-        axdod.set_yticks(yticks_dod)
+    #if yticks_dod:
+    #    axdod.set_yticks(yticks_dod)
 
     axwmb.errorbar(timeaxis-2*wd, DSWthickness, yerr=[DSW_yerr.T[0], DSW_yerr.T[1]], label="DSW", zorder=3, color='b', markersize=markersize, capsize=3, fmt="o")
     
@@ -493,9 +493,9 @@ def plot_array_waterMassThickness(df, regions, titles, ymin=0, ymax=None, bar_wi
 
             if retValue:
                 if(plotter == 1):
-                    DSWthickness[count], DSW_CI[count], lsswthickness[count], lssw_CI[count], ISWthickness[count], ISW_CI[count], mCDWthickness[count], mCDW_CI[count], CDWthickness[count], CDW_CI[count], zlowest[count] = waterMassThickness_bootstrapper(axwmb,axdod, df.loc[regions[count]], wd=bar_width, yticks=yticks, ymax=ymax, retValue=retValue, yticks_dod=yticks_dod, ymax_dod=ymax_dod, zbin=zbin, reps=reps)
+                    DSWthickness[count], DSW_CI[count], lsswthickness[count], lssw_CI[count], ISWthickness[count], ISW_CI[count], mCDWthickness[count], mCDW_CI[count], CDWthickness[count], CDW_CI[count], zlowest[count] = waterMassThickness_bootstrapper(axwmb,axdod, df.loc[regions[count]], wd=bar_width, yticks=yticks, ymax=ymax, retValue=retValue, yticks_dod=yticks_dod, ymax_dod=ymax_dod, zbin=zbin, reps=reps, fontsize=fontsize)
                 elif(plotter == 2):
-                    DSWthickness[count], DSW_CI[count], lsswthickness[count], lssw_CI[count], ISWthickness[count], ISW_CI[count], mCDWthickness[count], mCDW_CI[count], CDWthickness[count], CDW_CI[count], zlowest[count] = waterMassThickness_bootstrapper_profileWise(axwmb,axdod, df.loc[regions[count]], wd=bar_width, yticks=yticks, ymax=ymax, retValue=retValue, yticks_dod=yticks_dod, ymax_dod=ymax_dod, zbin=zbin, reps=reps)
+                    DSWthickness[count], DSW_CI[count], lsswthickness[count], lssw_CI[count], ISWthickness[count], ISW_CI[count], mCDWthickness[count], mCDW_CI[count], CDWthickness[count], CDW_CI[count], zlowest[count] = waterMassThickness_bootstrapper_profileWise(axwmb,axdod, df.loc[regions[count]], wd=bar_width, yticks=yticks, ymax=ymax, retValue=retValue, yticks_dod=yticks_dod, ymax_dod=ymax_dod, zbin=zbin, reps=reps, fontsize=fontsize)
                 else:
                     raise ValueError('plotter can only have value 1 or 2')
             else:
