@@ -15,7 +15,7 @@ from matplotlib.colorbar import Colorbar
 #import mplcursors
 import cartopy.crs as ccrs
 import cartopy
-#import fiona
+import fiona
 import shapely.geometry as sgeom
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 from matplotlib.image import BboxImage
@@ -941,7 +941,7 @@ def plot_region_bathy(region=None, wd=7, ht=5, bathy=None, save=False, savename=
 
 
 
-def plotDataDensity_NIS_DIS(df1, df2, units='Data Density', save=False, savename="savedFig.png", wd=7, ht=7, show=True, mapax = None, subplotlabel=None, levels=[0, 10, 20, 30, 40, 50, 60, 100, 200, 500], region='Whole', plotBathy=True, fontsize=8, DATADIR = "/media/data", dx=0.5, dy=0.5, region_lons=None):
+def plotDataDensity_NIS_DIS(df1, df2, units='Data Density', save=False, savename="savedFig.png", wd=7, ht=7, show=True, mapax = None, subplotlabel=None, levels=[0, 10, 20, 30, 40, 50, 60, 100, 200, 500], region='Whole', plotBathy=True, fontsize=8, DATADIR = "/media/aditya/AdityaNarayanan", dx=0.5, dy=0.5, region_lons=None):
 
     df = [df1, df2]    
     matplotlib.rcParams.update({'font.size': fontsize})        # setting fontsize for plot elements            
@@ -1021,7 +1021,7 @@ def plotDataDensity_NIS_DIS(df1, df2, units='Data Density', save=False, savename
     
     
     if(plotBathy == True):
-        bathyS = xr.open_dataset('/media/hdd2/SOSE_1_12/bathyS.nc')
+        bathyS = xr.open_dataset(DATADIR+'/hdd2/SOSE_1_12/bathyS.nc')
         cs = mapax.contour(bathyS.lon, bathyS.lat, bathyS.elevation.where(bathyS.elevation <= 0).values,  levels=[-1000], colors="b", linestyle=":", linewidths=0.25, transform = ccrs.PlateCarree())
         
     if not external_mapaxis:
@@ -1052,7 +1052,7 @@ def plotDataDensity_NIS_DIS(df1, df2, units='Data Density', save=False, savename
 
 def plot_fields_orthographic(field, longitude_coord, latitude_coord, vmin, vmax, cmap = 'viridis', save=False, savename="untitled.png",
                              colorbar_label="", region_lons=None, mapax=None, plot_colorbar=True, xlim=None, ylim=None):
-    DATADIR = "/media/sda7"
+    DATADIR = "/media/aditya/AdityaNarayanan"
     passing_mapaxis = True
     if not mapax:
         passing_mapaxis = False
