@@ -1,29 +1,66 @@
-plt.close(1)
-plt.figure(1, figsize=(190/25.4 , 4))
-gs = gridspec.GridSpec(1, 3, wspace=0, hspace=0)
+def create_merged_df(filenames):
+    count = 0
+    for i in range((len(filenames))):
+        arr_data = xr.open_dataset("../"+filenames[0][i])
 
-ax = plt.subplot(gs[0,0])
-dfsel = df.SHELF_BREAK_PROFILE & (df.ECHODEPTH > -1500) #& sel_months(df, [12,1,2,3,4,5])
-OHC_SB = OHC.compute_OHC(df[dfsel], ax, h_b=-250, ymax=7e9, lon_bins= np.arange(0,361,2.5))
-ax.set_ylabel("Ocean Heat Content Anomaly (Jm$^{-2}$)")
+        # Selecting only dates after MEOP 2018 release. 
+        selTime = arr_data.JULD > np.datetime64("2018-01-14")
+        nlev = len(arr_data['PRES_ADJUSTED'][0])
+        nprof = len(arr_data['PRES_ADJUSTED'][selTime])
+        if nprof > 0:
+            if(count == 0):
+                # creating unique serial number for each profile in NPROF
+                NPROF = np.arange(nprof)
+                NPROF = np.array([[NPROF[j]] * nlev for j in range(len(NPROF)) ])
+            else:
+                last_end = NPROF.flatten()[-1] + 1
+                NPROF = np.arange(last_end, last_end+nprof )
+                NPROF = np.array([[NPROF[j]] * nlev for j in range(len(NPROF)) ])
 
-dfsel = df.SHELF_BREAK_PROFILE & (df.ECHODEPTH < -1500) #& sel_months(df, [12,1,2,3,4,5])
-ax = plt.subplot(gs[0,1])
-OHC_2 = OHC.compute_OHC(df[dfsel], ax, h_b=-250, ymax=7e9, hide_yticks=True, lon_bins= np.arange(0, 361, 2.5))
+            ind = np.arange(nprof*nlev)
+            # arr_data["LATITUDE"] has length of nprof. Now expanding for each row of the CSV file, so each profile having nlev rows will have the latitude of that profile repeated on each row.
+            lat = np.array([[arr_data["LATITUDE"][selTime][j].values]* nlev for j in range(nprof) ])
+            lon = np.array([[arr_data["LONGITUDE"][selTime][j].values]* nlev for j in range(nprof) ])
+            posqc = np.array([[arr_data["POSITION_QC"][selTime][j].values]* nlev for j in range(nprof) ])
+            juld = np.array([[arr_data["JULD"][selTime][j].values]* nlev for j in range(nprof) ])
 
+            if(count == 0):    
+                df = {'PLATFORM_NUMBER': pd.Series([str(arr_data["PLATFORM_NUMBER"][selTime][0].values)]*len(ind), index=ind), 
+                      'PROFILE_NUMBER' : pd.Series(NPROF.flatten(), index=ind ),
+                      'TEMP_ADJUSTED': pd.Series(arr_data["TEMP_ADJUSTED"][selTime].values.flatten(), index=ind), 
+                      'PSAL_ADJUSTED': pd.Series(arr_data["PSAL_ADJUSTED"][selTime].values.flatten(), index=ind), 
+                      'PRES_ADJUSTED': pd.Series(arr_data["PRES_ADJUSTED"][selTime].values.flatten(), index=ind),  
+                      'PRES_ADJUSTED_QC': pd.Series(arr_data["PRES_ADJUSTED_QC"][selTime].values.flatten(), index=ind), 
+                      'PRES_ADJUSTED_ERROR':pd.Series(arr_data["PRES_ADJUSTED_ERROR"][selTime].values.flatten(), index=ind), 
+                      'TEMP_ADJUSTED_QC': pd.Series(arr_data["TEMP_ADJUSTED_QC"][selTime].values.flatten(), index=ind), 
+                      'TEMP_ADJUSTED_ERROR': pd.Series(arr_data["TEMP_ADJUSTED_ERROR"][selTime].values.flatten(), index=ind), 
+                      'PSAL_ADJUSTED_QC': pd.Series(arr_data["PSAL_ADJUSTED_QC"][selTime].values.flatten(), index=ind),  
+                      'PSAL_ADJUSTED_ERROR':pd.Series(arr_data["PSAL_ADJUSTED_ERROR"][selTime].values.flatten(), index=ind),  
+                      'JULD': pd.Series(juld.flatten(), index=ind),  
+                      'LATITUDE': pd.Series(lat.flatten(), index=ind),  
+                      'LONGITUDE': pd.Series(lon.flatten(), index=ind),  
+                      'POSITION_QC': pd.Series(posqc.flatten(), index=ind) }
+                df = pd.DataFrame(df)
+            else:
+                df_i = {'PLATFORM_NUMBER': pd.Series([str(arr_data["PLATFORM_NUMBER"][selTime][0].values)]*len(ind), index=ind), 
+                      'PROFILE_NUMBER' : pd.Series(NPROF.flatten(), index=ind ),
+                      'TEMP_ADJUSTED': pd.Series(arr_data["TEMP_ADJUSTED"][selTime].values.flatten(), index=ind), 
+                      'PSAL_ADJUSTED': pd.Series(arr_data["PSAL_ADJUSTED"][selTime].values.flatten(), index=ind), 
+                      'PRES_ADJUSTED': pd.Series(arr_data["PRES_ADJUSTED"][selTime].values.flatten(), index=ind),  
+                      'PRES_ADJUSTED_QC': pd.Series(arr_data["PRES_ADJUSTED_QC"][selTime].values.flatten(), index=ind), 
+                      'PRES_ADJUSTED_ERROR':pd.Series(arr_data["PRES_ADJUSTED_ERROR"][selTime].values.flatten(), index=ind), 
+                      'TEMP_ADJUSTED_QC': pd.Series(arr_data["TEMP_ADJUSTED_QC"][selTime].values.flatten(), index=ind), 
+                      'TEMP_ADJUSTED_ERROR': pd.Series(arr_data["TEMP_ADJUSTED_ERROR"][selTime].values.flatten(), index=ind), 
+                      'PSAL_ADJUSTED_QC': pd.Series(arr_data["PSAL_ADJUSTED_QC"][selTime].values.flatten(), index=ind),  
+                      'PSAL_ADJUSTED_ERROR':pd.Series(arr_data["PSAL_ADJUSTED_ERROR"][selTime].values.flatten(), index=ind),  
+                      'JULD': pd.Series(juld.flatten(), index=ind),  
+                      'LATITUDE': pd.Series(lat.flatten(), index=ind),  
+                      'LONGITUDE': pd.Series(lon.flatten(), index=ind),  
+                      'POSITION_QC': pd.Series(posqc.flatten(), index=ind)  }
+                df_i = pd.DataFrame(df_i)
 
-ax = plt.subplot(gs[0,2])
-OHC_diff = OHC_2[:, 0] - OHC_SB[:, 0]
-lons = np.arange(0, 360.01, 5)
-lons = (lons[1:] + lons[:-1])*0.5
-
-ax.fill_between(np.sort(lons),  OHC_diff[np.argsort(lons)], 0, facecolor="coral", edgecolor="r", alpha=0.5)
-ax.set_ylim(0, 7e9)
-ax.set_yticklabels([])
-ax.set_xticks(np.arange(0, 361, 60))
-ax.set_xticks(np.arange(30, 361, 60), minor=True)
-ax.set_xticklabels(np.arange(0, 361, 60), rotation=90)
-ax.set_xlim(0, 360)
-ax.grid()
-
-plt.savefig("./Images/slopeFront/OHC.jpg", dpi=600, bbox_inches='tight')
+                #pdb.set_trace()
+                df = df.append(df_i, ignore_index=True)
+                del(arr_data)
+            count += 1
+    return df
