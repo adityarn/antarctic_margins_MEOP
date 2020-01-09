@@ -1022,7 +1022,7 @@ def plotDataDensity_NIS_DIS(df1, df2, units='Data Density', save=False, savename
     
     if(plotBathy == True):
         bathyS = xr.open_dataset(DATADIR+'/hdd2/SOSE_1_12/bathyS.nc')
-        cs = mapax.contour(bathyS.lon, bathyS.lat, bathyS.elevation.where(bathyS.elevation <= 0).values,  levels=[-1000], colors="b", linestyle=":", linewidths=0.25, transform = ccrs.PlateCarree())
+        cs = mapax.contour(bathyS.lon, bathyS.lat, bathyS.elevation.where(bathyS.elevation <= 0).values,  levels=[-3000], colors="b", linestyle=":", linewidths=0.25, transform = ccrs.PlateCarree())
         
     if not external_mapaxis:
         print("no external mapaxis")
