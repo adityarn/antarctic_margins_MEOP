@@ -37,7 +37,6 @@ def compute_lonbinned_OHC(gdf, dz, h_b, rho0, Cp, Tf0):
 
         a = rho0 * Cp * dz
         OHC_sigma = np.sqrt(np.sum(a**2 * pot_temp_depth_binned_std**2))
-
         return np.array([OHC, OHC_sigma])
     except:
         return np.array([np.nan, np.nan])
@@ -49,7 +48,6 @@ def compute_OHC(df, ax, h_b = -500, dz=5, lon_bins = np.arange(0, 360.01, 5), ym
     Cp = 3850 #J/kg/K heat capacity of sea water
     Tf0 = gsw.t_freezing(34.85, 0 , 0)
     #dfsel = (df.DATASET == "Argo") | (df.DATASET == "SOCCOM") | (df.DATASET == "MEOP")
-    
     OHC = np.stack(df.groupby(pd.cut(df.LONGITUDE, lon_bins) ).\
                                                           apply(compute_lonbinned_OHC, dz, h_b, rho0, Cp, Tf0).values) #* 1e-9
     OHC[ (OHC[:, 0] == 0) , 0] = np.nan
@@ -65,9 +63,25 @@ def compute_OHC(df, ax, h_b = -500, dz=5, lon_bins = np.arange(0, 360.01, 5), ym
     ax.set_xticklabels(np.arange(0, 361, 60), rotation=90)
     ax.set_ylim(ymin, ymax)
     ax.set_xlim(0, 360)
+
+    countax = ax.twinx()
+    lonbin_count = df.CTEMP.groupby(pd.cut(df.LONGITUDE, lon_bins) ).count()
+    countax.patch.set_visible(False)
+    countax.yaxis.set_ticks_position('left')
+    countax.yaxis.set_label_position('left')
+    countax.spines['left'].set_position(('outward', 100))
+    countax.bar(lon_bins[1:], 
+                lonbin_count, 5, alpha=0.2, color='k')
+    countax.set_yscale("log")
+    countax.set_yticks([1.0, 1e1, 1e2, 1e3, 1e4])
+    countax.set_ylim(1e-1, 5e4)
+    
+    countax.bar(lon_bins[1:], lonbin_count, 0.5, )
     if hide_yticks:
         ax.set_yticklabels([])
+        countax.set_yticklabels([])
     ax.grid()    
+
     
     return OHC
     

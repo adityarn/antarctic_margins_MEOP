@@ -1120,7 +1120,7 @@ def plot_fields_orthographic(field, longitude_coord, latitude_coord, vmin, vmax,
     
 def plot_fields_polarStereographic(field, longitude_coord, latitude_coord, vmin, vmax, cmap = 'viridis', save=False, savename="untitled.png",
                              colorbar_label="", region_lons=None, mapax=None, plot_colorbar=True, xlim=None, ylim=None):
-    DATADIR = "/media/sda7"
+    DATADIR = "/media/aditya/AdityaNarayanan"
     passing_mapaxis = True
     if not mapax:
         passing_mapaxis = False
@@ -1153,7 +1153,7 @@ def plot_fields_polarStereographic(field, longitude_coord, latitude_coord, vmin,
     shpfile = DATADIR+"/Datasets/Shapefiles/AntarcticGroundingLine/GSHHS_f_L6.shp"
     # with fiona.open(shpfile) as records:
     #     geometries = [sgeom.shape(shp['geometry']) for shp in records]
-    GLfeature = ShapelyFeature(Reader(shpfile).geometries(), ccrs.PlateCarree(), linewidth=0.2, facecolor='0.7', edgecolor='0.25', alpha=0.25)
+    GLfeature = ShapelyFeature(Reader(shpfile).geometries(), ccrs.PlateCarree(), linewidth=0.2, facecolor='0.7', edgecolor='0.25')
     ISedgefname = DATADIR+"/Datasets/Shapefiles/AntIceShelf/ne_10m_antarctic_ice_shelves_polys.shp"
     ISe_feature = ShapelyFeature(Reader(ISedgefname).geometries(), 
                                  ccrs.PlateCarree(), linewidth=0.2,
@@ -1171,6 +1171,13 @@ def plot_fields_polarStereographic(field, longitude_coord, latitude_coord, vmin,
     #         text_lat  = -62.5
     #     mapax.text(l, text_lat, str(l)+"$^{\circ}$", transform=ccrs.PlateCarree() )    
 
+    for l in np.arange(0, 360, 20):
+        if( (l == 80) or (l == 100) ):
+            text_lat = -80
+        else:
+            text_lat  = -62.5
+        mapax.text(l, text_lat, str(l)+"$^{\circ}$", transform=ccrs.PlateCarree() )
+    
     if not passing_mapaxis:
         colorbar_ax = plt.subplot(gs[1:-1, 1])
         Colorbar(mappable = CF, ax = colorbar_ax)

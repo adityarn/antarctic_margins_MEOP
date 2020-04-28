@@ -367,3 +367,227 @@ def get_surface_sal_averages_vs_year(df, mask, years=[], varmin=0, varmax=0, sav
 def return_ma_nmin(arr_count, nmin):
     arr_count = ma.masked_less(arr_count, nmin)
     return arr_count.mask
+
+
+
+
+def return_property_means(df, mask, var='CTEMP'):
+    CTmean = df.loc[mask, var].mean()
+    CTsd = df.loc[mask, var].std()
+    if(var == 'CTEMP'):
+        varError = 'TEMP_ADJUSTED_ERROR'
+    else:
+        varError = var+'_ERROR'
+        
+    CTerrorMean = df.loc[mask, varError].mean()
+    CTcount = df.loc[mask, var].count()
+    
+    error = np.sqrt(CTerrorMean**2 + (1.96 * CTsd / np.sqrt(CTcount))**2)
+    
+    return CTmean , error
+
+
+
+def plot_property_trends(df, ax, fontsize=8, save=False, savename="Untitled.png", markersize=3, thetamin=-2, thetamax=2, salmin=33.5, salmax=35, countmax=1e4, sigmamin=27, sigmamax=28,
+                         hideYleft=False, hideYright=False, title=""):
+    matplotlib.rcParams.update({'font.size': fontsize})            
+    def get_years(df, years=[2010]):
+        mask_year = [None] * len(years)
+        for i in range(len(years)):
+            mask_year[i] = df.loc[:, 'JULD'].dt.year == years[i]
+        return mask_year
+    
+    yearly_count = df.groupby(df.JULD.dt.year)["CTEMP"].count().values
+    
+    years = df.loc[:, "JULD"].dt.year.unique()[yearly_count.nonzero()]
+    #print(years)
+    
+    mask_years = get_years(df, years=years)
+    
+    sal_yearly_mean = np.zeros(len(years))
+    salError_yearly_mean = np.zeros(len(years))
+    CT_yearly_mean = np.zeros(len(years))
+    CTError_yearly_mean = np.zeros(len(years))
+    sigma0_yearly_mean = np.zeros(len(years))
+    sigma0Error_yearly_mean = np.zeros(len(years))
+    
+    for i in range(len(years)):
+        try:
+            sal_yearly_mean[i], salError_yearly_mean[i] =  return_property_means(df, mask_years[i], var="PSAL_ADJUSTED")
+            CT_yearly_mean[i], CTError_yearly_mean[i] = return_property_means(df, mask_years[i], var="CTEMP")
+            sigma0_yearly_mean[i] = df.loc[mask_years[i], "POT_DENSITY"].mean()
+            sigma0Error_yearly_mean[i] = df.loc[mask_years[i], "POT_DENSITY"].std()
+        except:
+            pass
+        
+    ax.errorbar(years[~np.isnan(sal_yearly_mean)], sal_yearly_mean[~np.isnan(sal_yearly_mean)], yerr= salError_yearly_mean[~np.isnan(sal_yearly_mean)], fmt='o', markersize=markersize, capsize=3, label="salinity", color='b')
+                
+    z, res, _, _, _ = np.polyfit(years[~np.isnan(sal_yearly_mean)], sal_yearly_mean[~np.isnan(sal_yearly_mean)],
+                                 1, full=True)
+    p = np.poly1d(z)
+    
+    ax.plot(years[~np.isnan(sal_yearly_mean)], p(years[~np.isnan(sal_yearly_mean)]),"b", linestyle="--")
+    ax.set_xlabel("Years")
+
+    #ax.set_xticks(ax.get_xticks, rotation=45)
+    ax.set_title(title)
+    ax.set_ylim(salmin, salmax)
+    if hideYleft:
+        ax.set_yticklabels([])
+    else:
+        ax.set_ylabel("PSU", color="b")
+        
+    theta_ax = ax.twinx()
+    theta_ax.errorbar(years[~np.isnan(CT_yearly_mean)], CT_yearly_mean[~np.isnan(sal_yearly_mean)], yerr= CTError_yearly_mean[~np.isnan(CT_yearly_mean)], fmt='x', markersize=markersize, capsize=3, label="CT", color='r')                
+    z, res, _, _, _ = np.polyfit(years[~np.isnan(CT_yearly_mean)], CT_yearly_mean[~np.isnan(CT_yearly_mean)],
+                                 1, full=True)
+    p = np.poly1d(z)    
+    theta_ax.plot(years[~np.isnan(CT_yearly_mean)], p(years[~np.isnan(CT_yearly_mean)]),"r--")
+    
+    theta_ax.set_ylim(thetamin, thetamax)
+    if hideYright:
+        theta_ax.set_yticklabels([])
+    else:
+        theta_ax.set_ylabel("CT", color="r")        
+
+    sigma0_ax = ax.twinx()
+    sigma0_ax.errorbar(years[~np.isnan(sigma0_yearly_mean)], sigma0_yearly_mean[~np.isnan(sigma0_yearly_mean)], yerr= sigma0Error_yearly_mean[~np.isnan(sigma0_yearly_mean)], fmt='^', markersize=markersize, capsize=3, label="$\sigma_O$", color='k')                
+    z, res, _, _, _ = np.polyfit(years[~np.isnan(sigma0_yearly_mean)], sigma0_yearly_mean[~np.isnan(sigma0_yearly_mean)],
+                                 1, full=True)
+    p = np.poly1d(z)    
+    sigma0_ax.plot(years[~np.isnan(sigma0_yearly_mean)], p(years[~np.isnan(sigma0_yearly_mean)]),"k--")
+
+    sigma0_ax.patch.set_visible(False)
+    sigma0_ax.yaxis.set_ticks_position('left')
+    sigma0_ax.yaxis.set_label_position('left')
+    sigma0_ax.spines['left'].set_position(('outward', 50))
+    sigma0_ax.set_ylim(sigmamin, sigmamax)
+    if hideYleft:
+        sigma0_ax.set_yticklabels([])
+        sigma0_ax.set_axis_off()        
+    else:
+        sigma0_ax.set_ylabel("$\sigma_O$ (kgm$^{-3}$)", color="k")        
+
+    countax = ax.twinx()
+    #countax.set_frame_on(False)
+    countax.patch.set_visible(False)
+    countax.yaxis.set_ticks_position('left')
+    countax.yaxis.set_label_position('left')
+    countax.spines['left'].set_position(('outward', 100))
+    countax.bar(years[~np.isnan(sal_yearly_mean)], 
+                (yearly_count[yearly_count.nonzero()])[~np.isnan(sal_yearly_mean)], 0.4, alpha=0.2, color='k')
+    countax.set_yscale("log")
+    countax.set_yticks([1.0, 1e1, 1e2, 1e3, 1e4])
+    countax.set_ylim(1e-1, 5e4)
+
+    countax.set_ylim(0, 1e4)
+    if hideYleft:
+        countax.set_yticklabels([])
+        countax.set_axis_off()        
+    else:
+        countax.set_ylabel("Count (log scale)")        
+
+
+    ax.set_xticklabels( np.array(ax.get_xticks(), dtype=int ) )            
+    if(save==True):
+        plt.savefig(savename)
+    #plt.show()
+    #print("y=%.6fx+(%.6f)"%(z[0],z[1]), "res=",res)
+    #return sal_yearly_mean, sd, n
+
+
+
+def plot_properties_zonally(df, ax, long_bins=np.arange(0, 360.1, 5), markersize=3, show_legend=True, salmin=0, salmax=0, thetamin=-200, thetamax=-200, sigma_min=-200, sigma_max=-200, hideYleft=False, hideYright=False, sigma_frame_on=True):
+        
+    sal_error_long_bins = df["PSAL_ADJUSTED_ERROR"].groupby(pd.cut(df.LONGITUDE, long_bins ) ).mean()
+    sal_std_long_bins = df["PSAL_ADJUSTED"].groupby(pd.cut(df.LONGITUDE, long_bins ) ).std()
+    sal_count_long_bins = df["PSAL_ADJUSTED"].groupby(pd.cut(df.LONGITUDE, long_bins ) ).count()
+    sal_stat_error_long_bins = 1.96 * sal_std_long_bins / np.sqrt(sal_count_long_bins)
+    sal_error = np.sqrt(sal_error_long_bins**2 + sal_stat_error_long_bins**2)
+    sal_long_bins = df["PSAL_ADJUSTED"].groupby(pd.cut(df.LONGITUDE, long_bins ) ).mean().values
+    
+    CT_error_long_bins = df["TEMP_ADJUSTED_ERROR"].groupby(pd.cut(df.LONGITUDE, long_bins ) ).mean()
+    CT_std_long_bins = df["CTEMP"].groupby(pd.cut(df.LONGITUDE, long_bins ) ).std()
+    CT_count_long_bins = df["CTEMP"].groupby(pd.cut(df.LONGITUDE, long_bins ) ).count()
+    CT_stat_error_long_bins = 1.96 * CT_std_long_bins / np.sqrt(CT_count_long_bins)
+    CT_error = np.sqrt(CT_error_long_bins**2 + CT_stat_error_long_bins**2)
+    CT_long_bins = df["CTEMP"].groupby(pd.cut(df.LONGITUDE, long_bins ) ).mean().values
+    
+    sigma_std_long_bins = df["POT_DENSITY"].groupby(pd.cut(df.LONGITUDE, long_bins ) ).std()
+    sigma_count_long_bins = df["POT_DENSITY"].groupby(pd.cut(df.LONGITUDE, long_bins ) ).count()
+    sigma_error = 1.96 * sigma_std_long_bins / np.sqrt(sigma_count_long_bins)
+    sigma_long_bins = df["POT_DENSITY"].groupby(pd.cut(df.LONGITUDE, long_bins ) ).mean().values
+
+    def yearly_count(gdf):
+        yearly_count = gdf.groupby(gdf.JULD.dt.year).CTEMP.count()
+        return len(yearly_count[yearly_count > 10])
+
+    lonbin_count = df.groupby(pd.cut(df.LONGITUDE, long_bins ) )["CTEMP"].count().values
+    lonbin_yearly_count = df.groupby(pd.cut(df.LONGITUDE, long_bins ) ).apply(yearly_count)
+    
+    ax.errorbar(long_bins[1:], sal_long_bins, yerr=sal_error, fmt='o', markersize=markersize, 
+                capsize=3, color='b', label="Salinity")
+    ax_right = ax.twinx()
+    ax_right.errorbar(long_bins[1:], CT_long_bins, yerr=CT_error, fmt='x', markersize=markersize, 
+                      capsize=3, color='r', label="Pot. temp.")
+
+    sigma_ax = ax.twinx()
+    sigma_ax.set_frame_on(sigma_frame_on)
+    sigma_ax.patch.set_visible(False)
+    sigma_ax.yaxis.set_ticks_position('left')
+    sigma_ax.yaxis.set_label_position('left')
+    sigma_ax.spines['left'].set_position(('outward', 50))
+    sigma_ax.errorbar(long_bins[1:], sigma_long_bins, yerr=sigma_error, fmt='+', markersize=markersize, 
+                      capsize=3, color='0.5', label="Pot. density")
+    
+    sigma_ax.axhline(28, color='k', linestyle="--")
+    sigma_ax.axhline(28.27, color='k', linestyle="--")
+    sigma_ax.axhline(28.35, color='k', linestyle="--")
+    
+    #sigma_ax.set_yticks([1.0, 1e1, 1e2, 1e3, 1e4])
+    #sigma_ax.set_ylim(1e-1, 5e4)
+    sigma_ax.set_ylabel("Pot. density")
+    if(sigma_frame_on == False):
+        sigma_ax.set_axis_off()
+    
+
+    if(salmin != 0 and salmax != 0):
+        ax.set_ylim(salmin, salmax)
+    if(thetamin != -200 and thetamax != -200):
+        ax_right.set_ylim(thetamin, thetamax)
+    if(sigma_min != -200 and sigma_max != -200):
+        sigma_ax.set_ylim(sigma_min, sigma_max)
+    
+    if(show_legend == True):
+        handles, labels = ax.get_legend_handles_labels()
+        handles = [h[0] for h in handles]    
+        handles2, labels2 = ax_right.get_legend_handles_labels()
+        handles2 = [h[0] for h in handles2]
+        handles3, labels3 = sigma_ax.get_legend_handles_labels()
+        handles3 = [h[0] for h in handles3]
+        
+        ax.legend(handles+handles2+handles3, labels+labels2+labels3, loc=0)
+        
+    countax = ax.twinx()
+    #countax.set_frame_on(False)
+    countax.patch.set_visible(False)
+    countax.yaxis.set_ticks_position('left')
+    countax.yaxis.set_label_position('left')
+    countax.spines['left'].set_position(('outward', 100))
+    countax.bar(long_bins[1:], 
+                lonbin_count, 5, alpha=0.2, color='k')
+    countax.set_yscale("log")
+    countax.set_yticks([1.0, 1e1, 1e2, 1e3, 1e4])
+    countax.set_ylim(1e-1, 5e4)
+
+    countax.set_ylim(0, 1e4)
+    if hideYleft:
+        countax.set_yticklabels([])
+        countax.set_axis_off()        
+    else:
+        countax.set_ylabel("Count (log scale)")        
+    
+    
+    ax.set_xlim(0, 360)
+    ax.grid()
+    plt.show()
