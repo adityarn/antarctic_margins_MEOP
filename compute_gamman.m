@@ -1,4 +1,4 @@
-M = csvread('/media/data/Datasets/MEOP/MEOP-CTD_2018-04-10/myScripts/STPlonlat.csv', 1, 1);
+M = csvread('/media/sda7/Datasets/MEOP/MEOP-CTD_2018-04-10/myScripts/STPlonlat.csv', 1, 1);
 unique_profiles = unique(M(:, 1) );
 gamman = zeros(length(M), 1);
 
@@ -15,4 +15,4 @@ for i = 1:length(unique_profiles)
     unique_profiles(i)
 end
 
-dlmwrite('gamman.csv', [M(:,1), gamman],'precision','%.7f');
+dlmwrite('gamman2020.csv', [M(:,1), gamman],'precision','%.7f');

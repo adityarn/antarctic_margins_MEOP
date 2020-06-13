@@ -227,9 +227,9 @@ def plot_slope_sigma0_surfaces_variability_mean(dfmg, sigma_surfaces=[27.67, 27.
         
         for j in range(1,5,1):
             if i>0:
-                pass
-                #ax[-j].set_yticklabels("")
-                #ax[-j].set_yticks([])
+                #pass
+                ax[-j].set_yticklabels("")
+                ax[-j].set_yticks([])
             else:
                 ax[-j].set_ylabel(ylabel[::-1][j-1])
                 

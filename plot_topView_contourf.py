@@ -941,7 +941,7 @@ def plot_region_bathy(region=None, wd=7, ht=5, bathy=None, save=False, savename=
 
 
 
-def plotDataDensity_NIS_DIS(df1, df2, units='Data Density', save=False, savename="savedFig.png", wd=7, ht=7, show=True, mapax = None, subplotlabel=None, levels=[0, 10, 20, 30, 40, 50, 60, 100, 200, 500], region='Whole', plotBathy=True, fontsize=8, DATADIR = "/media/aditya/AdityaNarayanan", dx=0.5, dy=0.5, region_lons=None):
+def plotDataDensity_NIS_DIS(df1, df2, units='Data Density', save=False, savename="savedFig.png", wd=7, ht=7, show=True, mapax = None, subplotlabel=None, levels=[0, 10, 20, 30, 40, 50, 60, 100, 200, 500], region='Whole', plotBathy=True, fontsize=8, DATADIR = "/media/sda7", dx=0.5, dy=0.5, region_lons=None):
 
     df = [df1, df2]    
     matplotlib.rcParams.update({'font.size': fontsize})        # setting fontsize for plot elements            
@@ -1021,7 +1021,7 @@ def plotDataDensity_NIS_DIS(df1, df2, units='Data Density', save=False, savename
     
     
     if(plotBathy == True):
-        bathyS = xr.open_dataset(DATADIR+'/hdd2/SOSE_1_12/bathyS.nc')
+        bathyS = xr.open_dataset('/media/hdd2/SOSE_1_12/bathyS.nc')
         cs = mapax.contour(bathyS.lon, bathyS.lat, bathyS.elevation.where(bathyS.elevation <= 0).values,  levels=[-3000], colors="b", linestyle=":", linewidths=0.25, transform = ccrs.PlateCarree())
         
     if not external_mapaxis:
