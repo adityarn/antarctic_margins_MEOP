@@ -941,7 +941,7 @@ def plot_region_bathy(region=None, wd=7, ht=5, bathy=None, save=False, savename=
 
 
 
-def plotDataDensity_NIS_DIS(df1, df2, units='Data Density', save=False, savename="savedFig.png", wd=7, ht=7, show=True, mapax = None, subplotlabel=None, levels=[0, 10, 20, 30, 40, 50, 60, 100, 200, 500], region='Whole', plotBathy=True, fontsize=8, DATADIR = "/media/sda7", dx=0.5, dy=0.5, region_lons=None):
+def plotDataDensity_NIS_DIS(df1, df2, units='Data Density', save=False, savename="savedFig.png", wd=7, ht=7, show=True, mapax = None, subplotlabel=None, levels=[0, 10, 20, 30, 40, 50, 60, 100, 200, 500], region='Whole', plotBathy=True, fontsize=8, DATADIR = "/media/sda7", dx=0.5, dy=0.5, region_lons=None, xticks = np.arange(-180, 181, 20), yticks = np.arange(-80, -59, 5), xlabels_top=False, xlabels_bottom=False, ylabels_left=False, ylabels_right=False, draw_lonlat_label=True):
 
     df = [df1, df2]    
     matplotlib.rcParams.update({'font.size': fontsize})        # setting fontsize for plot elements            
@@ -971,10 +971,14 @@ def plotDataDensity_NIS_DIS(df1, df2, units='Data Density', save=False, savename
     gl = mapax.gridlines(crs=ccrs.PlateCarree(), draw_labels=False, zorder=2,
                   linewidth=0.5, color='gray', alpha=1, linestyle='--')
     
-    gl.xlocator = mticker.FixedLocator(np.arange(-180, 181, 20))
-    gl.ylocator = mticker.FixedLocator(np.arange(-80, -59, 5))
+    gl.xlocator = mticker.FixedLocator(xticks) 
+    gl.ylocator = mticker.FixedLocator(yticks) 
     gl.xformatter = LONGITUDE_FORMATTER
     gl.yformatter = LATITUDE_FORMATTER
+    gl.xlabels_top = xlabels_top
+    gl.xlabels_bottom = xlabels_bottom
+    gl.ylabels_left = ylabels_left
+    gl.ylabels_right = ylabels_right
 
     if region_lons:
         gl_regions = mapax.gridlines(crs=ccrs.PlateCarree(), draw_labels=False, linewidth=0.5, color='blue', alpha=1, linestyle=':', zorder=3)
@@ -1031,12 +1035,14 @@ def plotDataDensity_NIS_DIS(df1, df2, units='Data Density', save=False, savename
     #cbar1.ax.set_yticklabels("")
     #cbar2.set_label("Data density")
 
-    for l in np.arange(0, 360, 20):
-        if( (l == 80) or (l == 100) ):
-            text_lat = -80
-        else:
-            text_lat  = -62.5
-        mapax.text(l, text_lat, str(l)+"$^{\circ}$", transform=ccrs.PlateCarree() )
+
+    if draw_lonlat_label:
+        for l in np.arange(0, 360, 20):
+            if( (l == 80) or (l == 100) ):
+                text_lat = -80
+            else:
+                text_lat  = -62.5
+            mapax.text(l, text_lat, str(l)+"$^{\circ}$", transform=ccrs.PlateCarree() )
     if not subplotlabel:
         pass
     else:
@@ -1051,8 +1057,8 @@ def plotDataDensity_NIS_DIS(df1, df2, units='Data Density', save=False, savename
         
 
 def plot_fields_orthographic(field, longitude_coord, latitude_coord, vmin, vmax, cmap = 'viridis', save=False, savename="untitled.png",
-                             colorbar_label="", region_lons=None, mapax=None, plot_colorbar=True, xlim=None, ylim=None):
-    DATADIR = "/media/aditya/AdityaNarayanan"
+                             colorbar_label="", region_lons=None, mapax=None, plot_colorbar=True, xlim=None, ylim=None, xticks=np.arange(-180, 181, 20), yticks=np.arange(-80, -59, 5), xlabels_top=False, xlabels_bottom=False, ylabels_left=False, ylabels_right=False, plot_latlon_labels=True):
+    DATADIR = "/media/sda7/"
     passing_mapaxis = True
     if not mapax:
         passing_mapaxis = False
@@ -1062,17 +1068,19 @@ def plot_fields_orthographic(field, longitude_coord, latitude_coord, vmin, vmax,
     
         mapax = plt.subplot(gs[:,0], projection = ccrs.Orthographic(central_longitude=0, central_latitude=-90) )
         
-    CF = mapax.pcolormesh(longitude_coord, latitude_coord, 
-                          field, transform=ccrs.PlateCarree(), cmap= cmap, vmin = vmin, vmax = vmax)
 
-    gl = mapax.gridlines(crs=ccrs.PlateCarree(), draw_labels=False, zorder=2,
+    gl = mapax.gridlines(crs=ccrs.PlateCarree(), draw_labels=False, zorder=4,
                   linewidth=0.5, color='gray', alpha=1, linestyle='--')
     
-    gl.xlocator = mticker.FixedLocator(np.arange(-180, 181, 20))
-    gl.ylocator = mticker.FixedLocator(np.arange(-80, -59, 5))
+    gl.xlocator = mticker.FixedLocator(xticks)
+    gl.ylocator = mticker.FixedLocator(yticks)
     gl.xformatter = LONGITUDE_FORMATTER
     gl.yformatter = LATITUDE_FORMATTER
-
+    gl.xlabels_top = xlabels_top
+    gl.xlabels_bottom = xlabels_bottom
+    gl.ylabels_left = ylabels_left
+    gl.ylabels_right = ylabels_right
+    
     if region_lons:
         gl_regions = mapax.gridlines(crs=ccrs.PlateCarree(), draw_labels=False, linewidth=0.5, color='blue', alpha=1, linestyle=':', zorder=3)
         #gl_regions_lowZ = mapax.gridlines(crs=ccrs.PlateCarree(), draw_labels=False, linewidth=0.5, color='blue', alpha=1, linestyle='--', zorder=1)
@@ -1085,23 +1093,24 @@ def plot_fields_orthographic(field, longitude_coord, latitude_coord, vmin, vmax,
     shpfile = DATADIR+"/Datasets/Shapefiles/AntarcticGroundingLine/GSHHS_f_L6.shp"
     # with fiona.open(shpfile) as records:
     #     geometries = [sgeom.shape(shp['geometry']) for shp in records]
-    GLfeature = ShapelyFeature(Reader(shpfile).geometries(), ccrs.PlateCarree(), linewidth=0.2, facecolor='0.7', edgecolor='0.25', alpha=0.25)
+    GLfeature = ShapelyFeature(Reader(shpfile).geometries(), ccrs.PlateCarree(), linewidth=0.2, facecolor='0.9', edgecolor='0.25', zorder=3)
     ISedgefname = DATADIR+"/Datasets/Shapefiles/AntIceShelf/ne_10m_antarctic_ice_shelves_polys.shp"
     ISe_feature = ShapelyFeature(Reader(ISedgefname).geometries(), 
-                                 ccrs.PlateCarree(), linewidth=0.2,
-                                 facecolor='none', 
+                                 ccrs.PlateCarree(), linewidth=0.2, zorder=3,
+                                 facecolor='azure', 
                                  edgecolor="k")
 
     #mapax.add_geometries(geometries, ccrs.PlateCarree(), edgecolor='0.25', facecolor='0.7',alpha=0.25, linewidth=0.2)
     mapax.add_feature(GLfeature, zorder=3)
     mapax.add_feature(ISe_feature, zorder=3)
+    
+    CF = mapax.pcolormesh(longitude_coord, latitude_coord, 
+                          field, transform=ccrs.PlateCarree(), cmap= cmap, vmin = vmin, vmax = vmax, zorder=1)
 
-    # for l in np.arange(0, 360, 20):
-    #     if( (l == 80) or (l == 100) ):
-    #         text_lat = -62.5
-    #     else:
-    #         text_lat  = -62.5
-    #     mapax.text(l, text_lat, str(l)+"$^{\circ}$", transform=ccrs.PlateCarree() )    
+    if plot_latlon_labels:
+        for l in np.arange(0, 360, 40):
+            text_lat = -80
+            mapax.text(l, text_lat, str(l)+"$^{\circ}$", transform=ccrs.PlateCarree(), zorder=4 )    
 
     if not passing_mapaxis:
         colorbar_ax = plt.subplot(gs[1:-1, 1])
@@ -1178,6 +1187,79 @@ def plot_fields_polarStereographic(field, longitude_coord, latitude_coord, vmin,
             text_lat  = -62.5
         mapax.text(l, text_lat, str(l)+"$^{\circ}$", transform=ccrs.PlateCarree() )
     
+    if not passing_mapaxis:
+        colorbar_ax = plt.subplot(gs[1:-1, 1])
+        Colorbar(mappable = CF, ax = colorbar_ax)
+        colorbar_ax.set_ylabel(colorbar_label)
+    
+    if save:
+        plt.savefig(savefig, dpi=600)
+
+    if passing_mapaxis:
+        return CF
+    plt.show()
+
+
+
+
+def plot_scatter_orthographic(field, longitude_coord, latitude_coord, vmin, vmax, cmap = 'viridis', save=False, savename="untitled.png",
+                             colorbar_label="", region_lons=None, mapax=None, plot_colorbar=True, xlim=None, ylim=None, xticks=np.arange(-180, 181, 20), yticks=np.arange(-80, -59, 5), xlabels_top=False, xlabels_bottom=False, ylabels_left=False, ylabels_right=False):
+    DATADIR = "/media/sda7/"
+    passing_mapaxis = True
+    if not mapax:
+        passing_mapaxis = False
+        plt.close(1)
+        plt.figure(1, figsize=(7,7) )
+        gs = gridspec.GridSpec(5, 2, width_ratios=[1, 0.05], wspace=0.05)
+    
+        mapax = plt.subplot(gs[:,0], projection = ccrs.Orthographic(central_longitude=0, central_latitude=-90) )
+        
+
+    gl = mapax.gridlines(crs=ccrs.PlateCarree(), draw_labels=False, zorder=2,
+                  linewidth=0.5, color='gray', alpha=1, linestyle='--')
+    
+    gl.xlocator = mticker.FixedLocator(xticks)
+    gl.ylocator = mticker.FixedLocator(yticks)
+    gl.xformatter = LONGITUDE_FORMATTER
+    gl.yformatter = LATITUDE_FORMATTER
+    gl.xlabels_top = xlabels_top
+    gl.xlabels_bottom = xlabels_bottom
+    gl.ylabels_left = ylabels_left
+    gl.ylabels_right = ylabels_right
+    
+    if region_lons:
+        gl_regions = mapax.gridlines(crs=ccrs.PlateCarree(), draw_labels=False, linewidth=0.5, color='blue', alpha=1, linestyle=':', zorder=3)
+        #gl_regions_lowZ = mapax.gridlines(crs=ccrs.PlateCarree(), draw_labels=False, linewidth=0.5, color='blue', alpha=1, linestyle='--', zorder=1)
+        gl_regions.xlocator = mticker.FixedLocator(region_lons)
+        gl_regions.ylocator = mticker.FixedLocator(np.arange(-80, -59, 5) )
+        gl_regions.xformatter = LONGITUDE_FORMATTER
+        gl_regions.yformatter = LATITUDE_FORMATTER
+        gl_regions.ylines = False
+
+    shpfile = DATADIR+"/Datasets/Shapefiles/AntarcticGroundingLine/GSHHS_f_L6.shp"
+    # with fiona.open(shpfile) as records:
+    #     geometries = [sgeom.shape(shp['geometry']) for shp in records]
+    GLfeature = ShapelyFeature(Reader(shpfile).geometries(), ccrs.PlateCarree(), linewidth=0.2, facecolor='0.9', edgecolor='0.25', zorder=3)
+    ISedgefname = DATADIR+"/Datasets/Shapefiles/AntIceShelf/ne_10m_antarctic_ice_shelves_polys.shp"
+    ISe_feature = ShapelyFeature(Reader(ISedgefname).geometries(), 
+                                 ccrs.PlateCarree(), linewidth=0.2, zorder=3,
+                                 facecolor='azure', 
+                                 edgecolor="k")
+
+    #mapax.add_geometries(geometries, ccrs.PlateCarree(), edgecolor='0.25', facecolor='0.7',alpha=0.25, linewidth=0.2)
+    mapax.add_feature(GLfeature, zorder=3)
+    mapax.add_feature(ISe_feature, zorder=3)
+    
+    CF = mapax.scatter(longitude_coord, latitude_coord, 
+                          c=field, transform=ccrs.PlateCarree(), cmap= cmap, vmin = vmin, vmax = vmax, zorder=1)
+
+    # for l in np.arange(0, 360, 20):
+    #     if( (l == 80) or (l == 100) ):
+    #         text_lat = -62.5
+    #     else:
+    #         text_lat  = -62.5
+    #     mapax.text(l, text_lat, str(l)+"$^{\circ}$", transform=ccrs.PlateCarree() )    
+
     if not passing_mapaxis:
         colorbar_ax = plt.subplot(gs[1:-1, 1])
         Colorbar(mappable = CF, ax = colorbar_ax)
